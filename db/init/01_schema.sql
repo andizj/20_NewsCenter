@@ -7,7 +7,7 @@ CREATE TABLE users (
   email        TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
   password_hash TEXT NOT NULL,            -- placeholder for later auth
-  role VARCHAR(50) NOT NULL DEFAULT 'STUDENT' CHECK (role IN ('STUDENT', 'EMPLOYEE'))
+  role VARCHAR(50) NOT NULL DEFAULT 'STUDENT' CHECK (role IN ('STUDENT', 'EMPLOYEE')),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
