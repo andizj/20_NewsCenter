@@ -358,10 +358,14 @@ router.post("/login", async (req, res) => {
     let user;
 
     if (result.rows.length === 0) {
-      // Just-in-Time Provisioning: LDAP war erfolgreich, aber User existiert in unserer lokalen Postgres-DB noch nicht.
-      const role = "STUDENT";
-      const displayName = ldapUsername; // Platzhalter, da wir den echten Namen ohne aufwändige LDAP-Suche nicht kennen
-      const dummyPasswordHash = "$2b$10$INVALID_LOCAL_LOGIN_FOR_LDAP_USER_0000000"; // Fake bcrypt string als Fallback, da DB Spalte NOT NULL verlangt
+      
+      // Den Benutzernamen auf das Technikum-Studenten-Muster prüfen
+      // Das Muster prüft auf: 2 Buchstaben, 2 Zahlen, gefolgt von beliebigen weiteren Zeichen (z.B. if22b000)
+      const isStudent = /^[a-zA-Z]{2}\d{2}/.test(ldapUsername); 
+      const role = isStudent ? "STUDENT" : "EMPLOYEE";
+      
+      const displayName = ldapUsername; 
+      const dummyPasswordHash = "$2b$10$INVALID_LOCAL_LOGIN_FOR_LDAP_USER_0000000"; 
 
       const insertResult = await pool.query(
         `INSERT INTO users (display_name, email, password_hash, role)
