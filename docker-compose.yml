@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16
+    container_name: newscenter-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: newscenter
+      POSTGRES_PASSWORD: nc_secret
+      POSTGRES_DB: newscenter
+    ports:
+      - "5432:5432"
+    volumes:
+      - nc_pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newscenter -d newscenter"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  adminer:
+    image: adminer:4
+    container_name: newscenter-adminer
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  # Alternative UI tool:
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   container_name: newscenter-pgadmin
+  #   restart: unless-stopped
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@example.com
+  #     PGADMIN_DEFAULT_PASSWORD: admin123
+  #   ports:
+  #     - "8081:80"
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+
+volumes:
+  nc_pgdata:
