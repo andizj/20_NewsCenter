@@ -21,6 +21,23 @@
           @submit="onCreateMessage"
         />
 
+        <div class="searchBar">
+          <input
+              class="searchInput"
+              v-model.trim="searchTerm"
+              placeholder="Search with thesaurus..."
+              @keyup.enter="searchMessages"
+          />
+
+          <button class="btn" @click="searchMessages">
+            Search
+          </button>
+
+          <button class="btn" @click="clearSearch" v-if="searchTerm">
+            Clear
+          </button>
+        </div>
+
         <MessageList
           :messages="messages"
           :loading="messagesLoading"
@@ -48,6 +65,7 @@ export default {
 
   data() {
     return {
+      searchTerm: "",
       tags: [],
       tagsLoading: true,
       tagsError: null,
@@ -70,9 +88,13 @@ export default {
     await Promise.all([this.loadTags(), this.loadMessages()]);
 
     this.pollingInterval = setInterval(() => {
-      this.loadMessages(true);
+      if (this.searchTerm) {
+        this.searchMessages(true);
+      } else {
+        this.loadMessages(true);
+      }
       this.loadTags(true);
-    }, 10000); 
+    }, 10000);
   },
 
   beforeUnmount() {
@@ -82,6 +104,40 @@ export default {
   },
 
   methods: {
+    async searchMessages(isBackground = false) {
+      if (!isBackground) {
+        this.messagesLoading = true;
+      }
+
+      this.messagesError = null;
+
+      try {
+        if (!this.searchTerm) {
+          await this.loadMessages(isBackground);
+          return;
+        }
+
+        const response = await api.get(
+            `/messages/search?q=${encodeURIComponent(this.searchTerm)}`
+        );
+
+        this.messages = response.data;
+      } catch (e) {
+        if (!isBackground) {
+          this.messagesError = e?.response?.data?.error || e?.message || String(e);
+        } else {
+          console.error("Search polling error:", e);
+        }
+      } finally {
+        this.messagesLoading = false;
+      }
+    },
+
+    async clearSearch() {
+      this.searchTerm = "";
+      await this.loadMessages();
+    },
+
     async refreshAll() {
       await Promise.all([this.loadTags(), this.loadMessages()]);
     },
@@ -180,7 +236,31 @@ export default {
 </script>
 
 <style scoped>
-/* Styles bleiben gleich */
+
+.btn {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid #3a4354;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  cursor: pointer;
+}
+
+.searchBar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.searchInput {
+  flex: 1;
+  border: 1px solid #3a4354;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.25);
+  color: #e9eefc;
+}
+
 .page { display: grid; gap: 14px; }
 .layout {
   display: grid;

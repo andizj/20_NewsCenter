@@ -10,6 +10,10 @@
     <div class="meta">
       <span class="pill">author</span>
       <code class="code">{{ message.authorName }}</code>
+      <span class="roleBadge" :class="message.targetRole?.toLowerCase()">
+    {{ formatRole(message.targetRole) }}
+
+  </span>
     </div>
   </article>
 </template>
@@ -28,6 +32,11 @@ export default {
         return iso;
       }
     },
+    formatRole(role) {
+      if (role === "STUDENT") return "🎓 Student";
+      if (role === "EMPLOYEE") return "🏢 Employee";
+      return "🌍 All";
+    }
   },
 };
 </script>
@@ -58,5 +67,27 @@ export default {
   border-radius: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.roleBadge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.roleBadge.student {
+  background: rgba(100, 150, 255, 0.15);
+  color: #6ea8ff;
+}
+
+.roleBadge.employee {
+  background: rgba(255, 180, 100, 0.15);
+  color: #ffb464;
+}
+
+.roleBadge.all {
+  background: rgba(150, 150, 150, 0.15);
+  color: #ccc;
 }
 </style>
