@@ -25,7 +25,7 @@
           <input
               class="searchInput"
               v-model.trim="searchTerm"
-              placeholder="Search with thesaurus..."
+              placeholder="Search..."
               @keyup.enter="searchMessages"
           />
 

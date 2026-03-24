@@ -1,25 +1,26 @@
 <template>
   <article class="card">
-    <div class="top">
-      <h3 class="title">{{ message.title }}</h3>
+    
+    <div class="header">
+      <div class="author-info">
+        <code class="code">{{ message.authorName }}</code>
+      </div>
       <div class="date">{{ formatDate(message.createdAt) }}</div>
     </div>
 
-    <p class="body">{{ message.body }}</p>
+    <h3 class="title">{{ message.title }}</h3>
 
+    <p class="body">{{ message.body }}</p>
+    
     <div class="tags" v-if="message.tags && message.tags.length > 0">
+      <span class="roleBadge" :class="message.targetRole?.toLowerCase()">
+          {{ formatRole(message.targetRole) }}
+      </span>
       <span class="tag" v-for="(tag, index) in message.tags" :key="index">
         #{{ tag }}
       </span>
     </div>
 
-    <div class="meta">
-      <span class="pill">author</span>
-      <code class="code">{{ message.authorName }}</code>
-      <span class="roleBadge" :class="message.targetRole?.toLowerCase()">
-        {{ formatRole(message.targetRole) }}
-      </span>
-    </div>
   </article>
 </template>
 
@@ -32,7 +33,15 @@ export default {
   methods: {
     formatDate(iso) {
       try {
-        return new Date(iso).toLocaleString();
+        const date = new Date(iso);
+        // Wir zwingen das Format auf Deutsch und blenden die Sekunden aus
+        return date.toLocaleString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }) + ' Uhr';
       } catch {
         return iso;
       }
@@ -50,53 +59,83 @@ export default {
 .card {
   border: 1px solid #2a2f3a;
   border-radius: 16px;
-  padding: 14px;
+  padding: 16px;
   background: rgba(255,255,255,0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Sorgt für schöne, gleichmäßige Abstände zwischen den Bereichen */
 }
-.top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.title { margin: 0; font-size: 16px; font-weight: 800; }
-.date { font-size: 12px; color: #a9b1c3; white-space: nowrap; }
-.body { margin: 10px 0 12px; color: #dbe2f2; line-height: 1.35; }
 
-/* NEU: CSS für die Tags */
+/* NEU: Header-Bereich für Autor und Datum */
+.header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
+.author-info { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+}
+
+.title { 
+  margin: 0; 
+  font-size: 18px; 
+  font-weight: 800; 
+  color: #ffffff;
+}
+
+.body { 
+  margin: 0; 
+  color: #dbe2f2; 
+  line-height: 1.45; 
+}
+
+.date { 
+  font-size: 12px; 
+  color: #a9b1c3; 
+  white-space: nowrap; 
+}
+
+/* Tags Styling */
 .tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-top: 4px;
 }
 .tag {
   background: rgba(100, 160, 255, 0.1);
   color: #82aaff;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
   text-transform: lowercase;
 }
 
-.meta { display: flex; align-items: center; gap: 10px; color: #a9b1c3; font-size: 12px; }
+/* Badges & Pills */
 .pill {
   border: 1px solid #3a4354;
   padding: 3px 8px;
   border-radius: 999px;
   background: rgba(255,255,255,0.02);
+  font-size: 11px;
+  color: #a9b1c3;
 }
 .code {
   color: #cfd6e6;
   background: rgba(0,0,0,0.25);
   border: 1px solid #3a4354;
   padding: 3px 8px;
-  border-radius: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  border-radius: 8px;
+  font-size: 12px;
 }
 .roleBadge {
   padding: 3px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  margin-left: 6px;
 }
 .roleBadge.student { background: rgba(100, 150, 255, 0.15); color: #6ea8ff; }
 .roleBadge.employee { background: rgba(255, 180, 100, 0.15); color: #ffb464; }
