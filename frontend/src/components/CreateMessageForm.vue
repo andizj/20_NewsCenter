@@ -18,7 +18,16 @@
           </option>
         </select>
       </label>
-      
+
+      <label class="label">
+        Target Audience
+        <select class="input" v-model="form.targetRole" required>
+          <option value="ALL">All</option>
+          <option value="STUDENT">Student</option>
+          <option value="EMPLOYEE">Employee</option>
+        </select>
+      </label>
+
       <label class="label">
         Title
         <input class="input" v-model.trim="form.title" placeholder="Short headline…" required />
@@ -60,6 +69,7 @@ export default {
     return {
       form: {
         tagId: "",
+        targetRole: "ALL",
         title: "",
         body: "",
       },
@@ -69,6 +79,8 @@ export default {
     // fillDemoAuthor() ist komplett gelöscht, brauchen wir nicht mehr.
     
     reset() {
+      this.form.tagId = "";
+      this.form.targetRole = "ALL";
       this.form.title = "";
       this.form.body = "";
     },

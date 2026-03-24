@@ -2,6 +2,7 @@ const express = require("express");
 const { pool } = require("../db");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const ldap = require("ldapjs");
 
 const router = express.Router();
 
@@ -17,16 +18,64 @@ const normalizeEmail = (email) =>
   typeof email === "string" ? email.trim().toLowerCase() : "";
 
 /**
+ * HILFSFUNKTION: LDAP Authentifizierung
+ * Baut via StartTLS (-ZZ) eine sichere Verbindung zum LDAP Server auf.
+ */
+function authenticateLDAP(username, password) {
+  return new Promise((resolve, reject) => {
+    if (!password) {
+      return reject(new Error("Empty password"));
+    }
+
+    const client = ldap.createClient({
+      url: process.env.LDAP_URL // z.B. ldap://ldap.technikum-wien.at
+    });
+
+    client.on('error', (err) => {
+      reject(err);
+    });
+
+    // Technikum-Wien Format: uid=if22b...,ou=people,dc=technikum-wien,dc=at
+    const bindDN = `uid=${username},${process.env.LDAP_BASE_DN}`;
+
+    // Wegen dem -ZZ im ldapsearch müssen wir zwingend StartTLS aktivieren
+    client.starttls({}, null, (tlsErr) => {
+      if (tlsErr) {
+        client.unbind();
+        return reject(new Error("StartTLS failed: " + tlsErr.message));
+      }
+
+      // Erst NACH erfolgreichem TLS versuchen wir den Login (Bind)
+      client.bind(bindDN, password, (err) => {
+        if (err) {
+          client.unbind();
+          return reject(err);
+        }
+        
+        client.unbind();
+        resolve(true);
+      });
+    });
+  });
+}
+
+/**
  * POST /users
- * Neuen User anlegen (mit sicherem Passwort-Hashing)
+ * Neuen User anlegen (lokal, mit sicherem Passwort-Hashing)
  */
 router.post("/", async (req, res) => {
   const displayName =
     typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
   const email = normalizeEmail(req.body.email);
   const password = typeof req.body.password === "string" ? req.body.password : "";
+  const role = typeof req.body.role === "string" ? req.body.role.trim().toUpperCase() : "STUDENT";
 
-  // Validation
+  const allowedRoles = ["STUDENT", "EMPLOYEE"];
+
+  if (!allowedRoles.includes(role)) {
+    return res.status(400).json({ error: "Invalid role" });
+  }
+
   if (!displayName || !email || !password) {
     return res.status(400).json({
       error: "displayName, email and password are required",
@@ -40,28 +89,25 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // Hash password (never store plaintext)
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     const result = await pool.query(
-      `INSERT INTO users (display_name, email, password_hash)
-       VALUES ($1, $2, $3)
+      `INSERT INTO users (display_name, email, password_hash,role)
+       VALUES ($1, $2, $3,$4)
        RETURNING id,
                  display_name AS "displayName",
                  email,
+                 role,
                  created_at AS "createdAt"`,
-      [displayName, email, passwordHash]
+      [displayName, email, passwordHash, role]
     );
 
     return res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Error creating user:", err.message);
-
-    // Duplicate email (unique constraint) -> nicer message
     if (err.code === "23505") {
       return res.status(409).json({ error: "Email already exists" });
     }
-
     return res.status(500).json({
       error: "Failed to create user",
       details: err.message,
@@ -198,7 +244,6 @@ router.post("/:id/subscriptions", async (req, res) => {
 router.delete("/:id/subscriptions/:tagId", async (req, res) => {
   const { id, tagId } = req.params;
 
-  // Validierung der UUIDs
   if (!isUuid(id)) {
     return res.status(400).json({ error: "Invalid user id (must be UUID)" });
   }
@@ -213,10 +258,7 @@ router.delete("/:id/subscriptions/:tagId", async (req, res) => {
       [id, tagId]
     );
 
-    // Optional: Prüfen, ob überhaupt was gelöscht wurde
     if (result.rowCount === 0) {
-      // Man könnte 404 senden, oder einfach 200 (idempotent)
-      // Hier senden wir 200 mit Info, das ist okay für die UI.
       return res.status(200).json({ message: "Subscription not found or already deleted" });
     }
 
@@ -276,14 +318,15 @@ router.get("/:id/subscriptions", async (req, res) => {
 
 /**
  * POST /users/login
- * Login mit bcrypt + JWT
+ * Hybrid Login: Versucht zuerst lokale Datenbank (bcrypt), 
+ * fällt dann auf LDAP + Just-in-Time Provisioning zurück.
  */
 router.post("/login", async (req, res) => {
-  const email = normalizeEmail(req.body.email);
+  const emailInput = normalizeEmail(req.body.email);
   const password = typeof req.body.password === "string" ? req.body.password : "";
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "email and password are required" });
+  if (!emailInput || !password) {
+    return res.status(400).json({ error: "email/username and password are required" });
   }
 
   if (!process.env.JWT_SECRET) {
@@ -291,31 +334,80 @@ router.post("/login", async (req, res) => {
   }
 
   try {
+    let isAuthenticated = false;
+    let authUser = null;
+
+    // E-Mail für die DB-Suche vorbereiten
+    const userEmail = emailInput.includes('@') ? emailInput : `${emailInput}@technikum-wien.at`;
+
+    // ---------------------------------------------------------
+    // 1. LOKALER CHECK (Datenbank & bcrypt)
+    // ---------------------------------------------------------
     const result = await pool.query(
-      `SELECT id, email, display_name, password_hash
+      `SELECT id, email, display_name, role, password_hash
        FROM users
        WHERE email = $1`,
-      [email]
+      [userEmail]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Ungültige Anmeldedaten" });
+    const dbUser = result.rows[0];
+
+    // Wenn User in DB existiert UND ein echtes lokales Passwort hat
+    if (dbUser && !dbUser.password_hash.includes("INVALID_LOCAL_LOGIN")) {
+      const isPasswordValid = await bcrypt.compare(password, dbUser.password_hash);
+      if (isPasswordValid) {
+        isAuthenticated = true;
+        authUser = dbUser;
+        console.log("Hybrid-Login: Erfolgreich LOKAL angemeldet:", authUser.email);
+      }
     }
 
-    const user = result.rows[0];
+    // ---------------------------------------------------------
+    // 2. LDAP CHECK (Fallback, wenn lokal nicht geklappt hat)
+    // ---------------------------------------------------------
+    if (!isAuthenticated) {
+      const ldapUsername = emailInput.includes('@') ? emailInput.split('@')[0] : emailInput;
+      
+      try {
+        await authenticateLDAP(ldapUsername, password);
+        isAuthenticated = true; // LDAP sagt "Ja!"
+        console.log("Hybrid-Login: Erfolgreich via LDAP angemeldet:", ldapUsername);
+        
+        // JIT (Just-in-Time) Provisioning für den LDAP-User
+        if (!dbUser) {
+          const isStudent = /^[a-zA-Z]{2}\d{2}/.test(ldapUsername); 
+          const role = isStudent ? "STUDENT" : "EMPLOYEE";
+          const displayName = ldapUsername; 
+          // Dieser Dummy-Hash zeigt uns später, dass dieser User über LDAP reinkommt
+          const dummyPasswordHash = "$2b$10$INVALID_LOCAL_LOGIN_FOR_LDAP_USER_0000000"; 
 
-    // Must be a bcrypt hash
-    if (!user.password_hash || !user.password_hash.startsWith("$2")) {
-      return res.status(401).json({ error: "Ungültige Anmeldedaten" });
+          const insertResult = await pool.query(
+            `INSERT INTO users (display_name, email, password_hash, role)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, display_name AS "displayName", email, role`,
+            [displayName, userEmail, dummyPasswordHash, role]
+          );
+          authUser = insertResult.rows[0];
+        } else {
+          authUser = dbUser; // User existierte schon als LDAP-Nutzer in der DB
+        }
+        
+      } catch (ldapErr) {
+        console.error("LDAP Login fehlgeschlagen:", ldapErr.message);
+        // isAuthenticated bleibt auf false
+      }
     }
 
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) {
-      return res.status(401).json({ error: "Ungültige Anmeldedaten" });
+    // ---------------------------------------------------------
+    // 3. FINALES ERGEBNIS
+    // ---------------------------------------------------------
+    if (!isAuthenticated) {
+      return res.status(401).json({ error: "Ungültige Anmeldedaten (Lokal & LDAP fehlgeschlagen)" });
     }
 
+    // 4. JWT Token generieren
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: authUser.id, email: authUser.email, role: authUser.role },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "2h" }
     );
@@ -324,11 +416,13 @@ router.post("/login", async (req, res) => {
       message: "Login erfolgreich",
       token,
       user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.display_name,
+        id: authUser.id,
+        email: authUser.email,
+        displayName: authUser.display_name || authUser.displayName,
+        role: authUser.role,
       },
     });
+
   } catch (err) {
     console.error("Login error:", err.message);
     return res.status(500).json({ error: "Login failed", details: err.message });

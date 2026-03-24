@@ -7,6 +7,7 @@ CREATE TABLE users (
   email        TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
   password_hash TEXT NOT NULL,            -- placeholder for later auth
+  role VARCHAR(50) NOT NULL DEFAULT 'STUDENT' CHECK (role IN ('STUDENT', 'EMPLOYEE')),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -22,6 +23,7 @@ CREATE TABLE tags (
 CREATE TABLE messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   author_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_role VARCHAR(50) NOT NULL DEFAULT 'ALL',
   title      TEXT NOT NULL,
   body       TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
