@@ -115,46 +115,56 @@ DB_PORT=5432
 DB_USER=newscenter
 DB_PASSWORD=nc_secret
 DB_NAME=newscenter
+JWT_SECRET=super_secret_jwt_key_123
+LDAP_URL=ldap://ldap.technikum-wien.at
+LDAP_BASE_DN=ou=people,dc=technikum-wien,dc=at
 
     Note: For this university project, .env files are committed for simplicity and ease of setup.
     In production environments, sensitive configuration should never be committed.
 
-#### API Overview 
+## API Overview 
 
 The backend exposes REST endpoints consumed by the frontend. Key endpoints include:
-Auth: `POST /users/login`, `POST /users` (Register)
- Messages: `GET /messages?tag=...` (Filtering), `POST /messages` (Create)
- Tags: `GET /tags`, `POST /tags` (Create new topic)
+Auth: `POST /users/login` (Hybrid: Lokal + LDAP), `POST /users` (Register)
+ Messages: `GET /messages` (Feed), `GET /messages/search?q=...` (Thesaurus Suche), `POST /messages`
+ Tags: `GET /tags`, `POST /tags` 
  Subscriptions: `POST /users/:id/subscriptions`, `DELETE /users/:id/subscriptions/:tagId`
 
 (Note: Server-Sent Events were replaced by a robust client-side polling mechanism for this iteration.)
 
 All endpoints are documented via Swagger.
 
-#### Current Features 
+## Current Features (Iteration 1 & 2)
+Epic 1: LDAP & Authentifizierung
 
- User Authentication: Secure Login and Registration (JWT & BCrypt).
- Tag-Based Filtering: Filter the news feed by specific topics (e.g., `#IT`, `#Events`).
- Subscription System: Users can subscribe/unsubscribe to topics (starred tags).
- Real-Time Updates: The frontend automatically polls for new messages and tags every 10 seconds.
- Responsive UI: Optimized layout for desktop and mobile devices.
- Content Creation: Create messages and new tags directly from the UI.
+- Hybrid-Login: Unterstützt sicheren lokalen Login (BCrypt) sowie einen Fallback auf das Active Directory der FH Technikum Wien.
+- Verschlüsselte LDAP-Verbindung via StartTLS.
+- Just-in-Time Provisioning: Automatische Account-Erstellung beim ersten LDAP-Login.
+- Automatisches Rollen-Mapping: Zuweisung von Student / Employee via Regex-Prüfung der FH-Kennung.
 
-#### Project Status 
+Epic 2: Intelligente Suche (Thesaurus)
 
+- Semantic Search: Anbindung der OpenThesaurus REST-API.
+- Echtzeit-Synonym-Erweiterung bei Suchanfragen (z. B. "Feuer" findet auch "Brandverordnung").
+- Dynamisch erweiterte SQL-Abfragen für deutlich höhere Trefferquoten.
+- Frontend, UX & Core-Features
+- Tag-Based Filtering & Subscriptions: Personalisierter News-Feed basierend auf abonnierten Themen und der eigenen LDAP-Rolle.
+- Modernes UI: Optimiertes Feed-Layout ("Wer spricht?" vor "Was wird gesagt?") inklusive visueller Tag-Hashtags.
+- Real-Time Updates: Das Frontend pollt regelmäßig nach neuen Nachrichten.
+- Content Creation: Create messages and new tags directly from the UI.
+
+## Project Status
 The project currently provides a fully working end-to-end prototype:
- Frontend ↔ Backend ↔ Database communication is fully implemented.
- Authentication and security basics (password hashing) are implemented.
- Tagging logic (Many-to-Many relations) is fully functional.
+Frontend ↔ Backend ↔ Database communication is fully implemented.
+Authentication and security basics (password hashing & LDAP integration) are implemented.
+Tagging logic (Many-to-Many relations & Thesaurus search) is fully functional.
 
-#### Future Improvements 
+## Future Improvements
+True Real-Time: Replace polling with WebSockets for instant updates.
+Admin Dashboard: UI to delete messages or manage users.
+File Uploads: Allow images or attachments in messages.
+Automated Tests: Unit and Integration tests.
 
- True Real-Time: Replace polling with WebSockets for instant updates.
- Admin Dashboard: UI to delete messages or manage users.
- File Uploads: Allow images or attachments in messages.
- Automated Tests: Unit and Integration tests.
-
-#### About This Project 
-
+## About This Project
 This project was developed as part of a university course (Innovation Lab).
 Some implementation decisions prioritize clarity and ease of evaluation over production-grade security practices.
