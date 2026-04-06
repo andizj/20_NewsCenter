@@ -55,6 +55,7 @@ The frontend never communicates directly with the database.
 Optional:
 ```bash
 npm install -g @vue/cli
+```
 
 ### Running the Application 
 
@@ -65,34 +66,34 @@ From the project root:
 docker compose up -d
 
 Adminer (Database UI):
-
+```bash
     URL: http://localhost:8080
     System: PostgreSQL
     Server: db
     User: newscenter
     Password: nc_secret
     Database: newscenter
-
+```
 #### 2) Start the Backend
-
+```bash
 cd backend
 npm install
 npm run dev
-
+```
 Backend API:
-
+```bash
 http://localhost:3000
-
+```
 Swagger API Documentation:
-
+```bash
 http://localhost:3000/api-docs
-
+```
 #### 3) Start the Frontend
-
+```bash
 cd newscenter-frontend
 npm install
 npm run serve
-
+```
 Frontend URL (port may vary):
 
 http://localhost:8081
@@ -106,7 +107,7 @@ newscenter-frontend/.env
 VUE_APP_API_URL=http://localhost:3000
 
 Backend
-
+```bash
 backend/.env
 
 PORT=3000
@@ -119,6 +120,7 @@ JWT_SECRET=super_secret_jwt_key_123
 LDAP_URL=ldap://ldap.technikum-wien.at
 LDAP_BASE_DN=ou=people,dc=technikum-wien,dc=at
 
+```
     Note: For this university project, .env files are committed for simplicity and ease of setup.
     In production environments, sensitive configuration should never be committed.
 
