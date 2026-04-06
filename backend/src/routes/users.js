@@ -375,7 +375,8 @@ router.post("/login", async (req, res) => {
         
         // JIT (Just-in-Time) Provisioning für den LDAP-User
         if (!dbUser) {
-          const isStudent = /^[a-zA-Z]{2}\d{2}/.test(ldapUsername); 
+          // Prüft auf exaktes Muster: 2 Buchstaben, 2 Zahlen, 1 Buchstabe, 3 Zahlen (z.B. if24b123)
+          const isStudent = /^[a-zA-Z]{2}\d{2}[a-zA-Z]\d{3}$/.test(ldapUsername); 
           const role = isStudent ? "STUDENT" : "EMPLOYEE";
           const displayName = ldapUsername; 
           // Dieser Dummy-Hash zeigt uns später, dass dieser User über LDAP reinkommt
