@@ -1,8 +1,10 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:16
     container_name: newscenter-db
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_USER: newscenter
       POSTGRES_PASSWORD: nc_secret
@@ -10,37 +12,35 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - nc_pgdata:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U newscenter -d newscenter"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+      - db-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d 
 
-  adminer:
-    image: adminer:4
-    container_name: newscenter-adminer
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
+  backend:
+    build: ./backend
+    container_name: newscenter-backend
+    restart: always
     ports:
-      - "8080:8080"
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=newscenter
+      - DB_PASSWORD=nc_secret
+      - DB_NAME=newscenter
+      - JWT_SECRET=super_secret_jwt_key_123
+      - LDAP_URL=ldap://ldap.technikum-wien.at
+      - LDAP_BASE_DN=ou=people,dc=technikum-wien,dc=at
+    depends_on:
+      - db
 
-  # Alternative UI tool:
-  # pgadmin:
-  #   image: dpage/pgadmin4
-  #   container_name: newscenter-pgadmin
-  #   restart: unless-stopped
-  #   environment:
-  #     PGADMIN_DEFAULT_EMAIL: admin@example.com
-  #     PGADMIN_DEFAULT_PASSWORD: admin123
-  #   ports:
-  #     - "8081:80"
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
+  frontend:
+    build: ./frontend
+    container_name: newscenter-frontend
+    restart: always
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
 
 volumes:
-  nc_pgdata:
+  db-data:

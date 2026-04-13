@@ -57,6 +57,18 @@ Optional:
 npm install -g @vue/cli
 ```
 
+### Running the Application Fully Containerized (only for retake)
+
+The entire application (Frontend, Backend, and Database) is fully containerized using Docker. You do not need to install Node.js or run `npm install` manually. You can start the complete stack with a single command!
+
+#### 1) Start the full stack
+
+From the project root directory, run:
+
+```bash
+docker compose up --build -d
+```
+
 ### Running the Application 
 
 #### 1) Start the Database
