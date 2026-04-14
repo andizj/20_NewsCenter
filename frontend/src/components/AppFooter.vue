@@ -21,7 +21,7 @@ export default {
               radial-gradient(900px 500px at 80% 0%, rgba(255,255,255,0.08), transparent 50%),
               #0b0f16;
   padding: 20px 0;
-  margin-top: 40px; /* Abstand zum Inhalt darüber */
+  margin-top: 40px; 
 }
 
 .footer-content {
@@ -59,6 +59,6 @@ export default {
 }
 
 .footer-links a:hover {
-  color: #42b983;  /*Deine Akzentfarbe */
+  color: #42b983;  
 }
 </style>

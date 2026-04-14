@@ -132,8 +132,8 @@ export default {
         });
         
         const { token, user } = response.data;
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
+        sessionStorage.setItem('token', token);
+        sessionStorage.setItem('user', JSON.stringify(user));
         
         // Nach erfolgreichem Login: Weiter zum Feed
         this.$router.push('/feed');
@@ -173,7 +173,6 @@ export default {
 </script>
 
 <style scoped>
-/* --- BASIS STYLES (wie vorher) --- */
 .landing-container {
   min-height: 80vh;
   display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 2rem;
@@ -190,7 +189,6 @@ export default {
 .primary { background: #42b983; color: white; box-shadow: 0 4px 14px rgba(66, 185, 131, 0.4); }
 .secondary { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); }
 
-/* --- NEU: POPUP (MODAL) STYLES --- */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0, 0, 0, 0.7); /* Dunkler Hintergrund */

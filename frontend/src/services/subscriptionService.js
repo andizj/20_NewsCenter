@@ -2,7 +2,7 @@ import api from './api';
 
 // Hilfsfunktion: User ID aus dem LocalStorage holen
 function getCurrentUserId() {
-  const userStr = localStorage.getItem('user');
+  const userStr = sessionStorage.getItem('user');
   if (!userStr) return null;
   try {
     const user = JSON.parse(userStr);

@@ -75,8 +75,6 @@ export default {
       },
     };
   },
-  methods: {
-    // fillDemoAuthor() ist komplett gelöscht, brauchen wir nicht mehr.
     
     reset() {
       this.form.tagId = "";
@@ -138,7 +136,7 @@ export default {
 .success { color: #2ecc71; font-size: 12px; margin-top: 4px; }
 .hint { color: #a9b1c3; font-size: 12px; margin-top: 4px; }
 select.input {
-  appearance: none; /* Entfernt Standard-Browser-Pfeil (optional) */
+  appearance: none; 
   cursor: pointer;
 }
 </style>

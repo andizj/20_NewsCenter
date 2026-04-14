@@ -184,7 +184,6 @@ export default {
         this.messages = response.data;
 
       } catch (e) {
-        // Fehler im Hintergrund ignorieren wir meistens, oder loggen sie nur
         if (!isBackground) {
             this.messagesError = e?.message || String(e);
         } else {

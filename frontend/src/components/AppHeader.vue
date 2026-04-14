@@ -24,8 +24,8 @@ export default {
   },
   methods: {
     logout() {
-      localStorage.removeItem("user");
-      localStorage.removeItem("token"); 
+      sessionStorage.removeItem("user");
+      sessionStorage.removeItem("token"); 
       this.$router.push("/");
     }
   }
@@ -75,14 +75,13 @@ export default {
 }
 .btn:hover { background: rgba(255,255,255,0.08); }
 
-/* Rötlicher Hover-Effekt für den Logout-Button */
 .logout-btn:hover {
   background: rgba(255, 80, 80, 0.15);
   border-color: rgba(255, 80, 80, 0.4);
 }
 .logo {
-  height: 60px; /* Oder wie groß du es haben willst */
-  width: 70px;  /* Damit das Seitenverhältnis stimmt */
-  margin-right: 5px; /* Abstand zum Text */
+  height: 60px; 
+  width: 70px;  
+  margin-right: 5px; 
 }
 </style>

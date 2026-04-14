@@ -38,20 +38,18 @@ function authenticateLDAP(username, password) {
     // Technikum-Wien Format: uid=if22b...,ou=people,dc=technikum-wien,dc=at
     const bindDN = `uid=${username},${process.env.LDAP_BASE_DN}`;
 
-    // Wegen dem -ZZ im ldapsearch müssen wir zwingend StartTLS aktivieren
     client.starttls({}, null, (tlsErr) => {
       if (tlsErr) {
         client.unbind();
         return reject(new Error("StartTLS failed: " + tlsErr.message));
       }
 
-      // Erst NACH erfolgreichem TLS versuchen wir den Login (Bind)
       client.bind(bindDN, password, (err) => {
         if (err) {
           client.unbind();
           return reject(err);
         }
-        
+
         client.unbind();
         resolve(true);
       });
@@ -340,9 +338,7 @@ router.post("/login", async (req, res) => {
     // E-Mail für die DB-Suche vorbereiten
     const userEmail = emailInput.includes('@') ? emailInput : `${emailInput}@technikum-wien.at`;
 
-    // ---------------------------------------------------------
     // 1. LOKALER CHECK (Datenbank & bcrypt)
-    // ---------------------------------------------------------
     const result = await pool.query(
       `SELECT id, email, display_name, role, password_hash
        FROM users
@@ -362,25 +358,21 @@ router.post("/login", async (req, res) => {
       }
     }
 
-    // ---------------------------------------------------------
     // 2. LDAP CHECK (Fallback, wenn lokal nicht geklappt hat)
-    // ---------------------------------------------------------
     if (!isAuthenticated) {
       const ldapUsername = emailInput.includes('@') ? emailInput.split('@')[0] : emailInput;
-      
+
       try {
         await authenticateLDAP(ldapUsername, password);
         isAuthenticated = true; // LDAP sagt "Ja!"
         console.log("Hybrid-Login: Erfolgreich via LDAP angemeldet:", ldapUsername);
-        
+
         // JIT (Just-in-Time) Provisioning für den LDAP-User
         if (!dbUser) {
-          // Prüft auf exaktes Muster: 2 Buchstaben, 2 Zahlen, 1 Buchstabe, 3 Zahlen (z.B. if24b123)
-          const isStudent = /^[a-zA-Z]{2}\d{2}[a-zA-Z]\d{3}$/.test(ldapUsername); 
+          const isStudent = /^[a-zA-Z]{2}\d{2}[a-zA-Z]\d{3}$/.test(ldapUsername);
           const role = isStudent ? "STUDENT" : "EMPLOYEE";
-          const displayName = ldapUsername; 
-          // Dieser Dummy-Hash zeigt uns später, dass dieser User über LDAP reinkommt
-          const dummyPasswordHash = "$2b$10$INVALID_LOCAL_LOGIN_FOR_LDAP_USER_0000000"; 
+          const displayName = ldapUsername;
+          const dummyPasswordHash = "$2b$10$INVALID_LOCAL_LOGIN_FOR_LDAP_USER_0000000";
 
           const insertResult = await pool.query(
             `INSERT INTO users (display_name, email, password_hash, role)
@@ -392,16 +384,15 @@ router.post("/login", async (req, res) => {
         } else {
           authUser = dbUser; // User existierte schon als LDAP-Nutzer in der DB
         }
-        
+
       } catch (ldapErr) {
         console.error("LDAP Login fehlgeschlagen:", ldapErr.message);
-        // isAuthenticated bleibt auf false
       }
     }
 
-    // ---------------------------------------------------------
+
     // 3. FINALES ERGEBNIS
-    // ---------------------------------------------------------
+
     if (!isAuthenticated) {
       return res.status(401).json({ error: "Ungültige Anmeldedaten (Lokal & LDAP fehlgeschlagen)" });
     }

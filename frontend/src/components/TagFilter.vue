@@ -60,7 +60,6 @@
 
 <script>
 import { getSubscriptions, subscribe, unsubscribe } from '../services/subscriptionService';
-// NEU: createTag importieren
 import { createTag } from '../services/tagsService';
 
 export default {
@@ -114,7 +113,6 @@ export default {
       this.loadSubscriptions(); 
     },
 
-    // NEU: Tag an das Backend senden
     async addTag() {
       if (!this.newTagName.trim()) return;
       
@@ -175,7 +173,6 @@ export default {
 .error { margin-top: 10px; color: #ff6b6b; font-size: 12px; }
 .footer { margin-top: 14px; font-size: 12px; color: #a9b1c3; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;}
 
-/* --- NEU: Styles für das Eingabefeld --- */
 .add-tag-wrapper {
   margin-top: 15px;
   display: flex;

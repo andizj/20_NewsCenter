@@ -13,7 +13,6 @@ VALUES
  ('events','Events & meetups'),
  ('study','Study tips & deadlines');
 
--- Grab some ids for convenience (works fine in seed scripts)
 WITH u AS (SELECT id FROM users ORDER BY created_at LIMIT 3),
      t AS (SELECT id, name FROM tags)
 INSERT INTO messages (author_id, title, body)

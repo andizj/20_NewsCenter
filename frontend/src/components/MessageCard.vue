@@ -34,7 +34,6 @@ export default {
     formatDate(iso) {
       try {
         const date = new Date(iso);
-        // Wir zwingen das Format auf Deutsch und blenden die Sekunden aus
         return date.toLocaleString('de-DE', {
           day: '2-digit',
           month: '2-digit',
@@ -63,10 +62,9 @@ export default {
   background: rgba(255,255,255,0.03);
   display: flex;
   flex-direction: column;
-  gap: 12px; /* Sorgt für schöne, gleichmäßige Abstände zwischen den Bereichen */
+  gap: 12px; 
 }
 
-/* NEU: Header-Bereich für Autor und Datum */
 .header { 
   display: flex; 
   justify-content: space-between; 

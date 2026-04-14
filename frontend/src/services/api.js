@@ -10,9 +10,9 @@ const api = axios.create({
 // Request Interceptor: Fügt das Token automatisch hinzu
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`; // <--- Das verlangt dein Backend
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
