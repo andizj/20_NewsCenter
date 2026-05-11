@@ -30,6 +30,9 @@ services:
       - JWT_SECRET=super_secret_jwt_key_123
       - LDAP_URL=ldap://ldap.technikum-wien.at
       - LDAP_BASE_DN=ou=people,dc=technikum-wien,dc=at
+    volumes:
+      - ./backend/src:/app/src  # Live-Reload: Änderungen werden sofort übernommen
+    command: npm run dev         # nodemon statt node
     depends_on:
       - db
 

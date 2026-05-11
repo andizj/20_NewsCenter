@@ -75,7 +75,7 @@ export default {
       },
     };
   },
-    
+  methods: {
     reset() {
       this.form.tagId = "";
       this.form.targetRole = "ALL";
