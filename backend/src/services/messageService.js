@@ -43,10 +43,10 @@ async function getMessageForBroadcast(id) {
 /**
  * Returns the message feed for a user, optionally filtered by tag.
  *
- * @param {{ userRole: string, userId: string, tag?: string }} param0
+ * @param {{ userRole: string, userId: string, tag?: string, filter?: string }} param0
  */
-async function getMessages({ userRole, userId, tag }) {
-  return messageRepository.findFiltered({ userRole, userId, tag });
+async function getMessages({ userRole, userId, tag, filter }) {
+  return messageRepository.findFiltered({ userRole, userId, tag, filter });
 }
 
 /**

@@ -58,9 +58,9 @@ async function addTag(messageId, tagId) {
  * - Else if user has subscriptions: show subscribed-tag messages + untagged messages.
  * - Else: show all messages the user's role can see.
  *
- * @param {{ userRole: string, userId: string, tag?: string }} param0
+ * @param {{ userRole: string, userId: string, tag?: string, filter?: string }} param0
  */
-async function findFiltered({ userRole, userId, tag }) {
+async function findFiltered({ userRole, userId, tag, filter }) {
   if (tag) {
     const result = await pool.query(
       `SELECT ${MESSAGE_COLUMNS}
@@ -79,6 +79,21 @@ async function findFiltered({ userRole, userId, tag }) {
     return result.rows;
   }
 
+  // If filter is explicitly 'all', skip subscription filtering
+  if (filter === 'all') {
+    const result = await pool.query(
+      `SELECT ${MESSAGE_COLUMNS}
+       FROM messages m
+       ${MESSAGE_JOINS}
+       WHERE m.target_role = $1 OR m.target_role = 'ALL'
+       GROUP BY m.id, u.display_name
+       ORDER BY m.created_at DESC`,
+      [userRole]
+    );
+    return result.rows;
+  }
+
+  // Otherwise, if filter is 'subscribed' or not specified, apply subscription logic if user has subs
   const subResult = await pool.query(
     `SELECT tag_id FROM subscriptions WHERE user_id = $1::uuid`,
     [userId]

@@ -61,6 +61,7 @@ module.exports = (broadcaster) => {
         userRole: req.user.role,
         userId: req.user.id,
         tag: req.query.tag,
+        filter: req.query.filter,
       });
       return res.json(messages);
     } catch (err) {

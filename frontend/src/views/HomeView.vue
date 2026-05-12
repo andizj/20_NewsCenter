@@ -4,6 +4,7 @@
 
     <div class="layout">
       <TagFilter
+        ref="tagFilter"
         :tags="tags"
         :selected="selectedTag"
         :loading="tagsLoading"
@@ -21,21 +22,40 @@
           @submit="onCreateMessage"
         />
 
-        <div class="searchBar">
-          <input
-              class="searchInput"
-              v-model.trim="searchTerm"
-              placeholder="Search..."
-              @keyup.enter="searchMessages"
-          />
+        <div class="feed-controls">
+          <div class="searchBar">
+            <input
+                class="searchInput"
+                v-model.trim="searchTerm"
+                placeholder="Search..."
+                @keyup.enter="searchMessages"
+            />
 
-          <button class="btn" @click="searchMessages">
-            Search
-          </button>
+            <button class="btn" @click="searchMessages">
+              Search
+            </button>
 
-          <button class="btn" @click="clearSearch" v-if="searchTerm">
-            Clear
-          </button>
+            <button class="btn" @click="clearSearch" v-if="searchTerm">
+              Clear
+            </button>
+          </div>
+          
+          <div class="filter-toggle">
+            <button 
+              class="toggle-btn" 
+              :class="{ active: feedFilter === 'all' }" 
+              @click="setFeedFilter('all')"
+            >
+              Alle
+            </button>
+            <button 
+              class="toggle-btn" 
+              :class="{ active: feedFilter === 'subscribed' }" 
+              @click="setFeedFilter('subscribed')"
+            >
+              Abonniert
+            </button>
+          </div>
         </div>
 
         <MessageList
@@ -56,8 +76,10 @@ import TagFilter from "../components/TagFilter.vue";
 import MessageList from "../components/MessageList.vue";
 import CreateMessageForm from "../components/CreateMessageForm.vue";
 
-import api from "../services/api"; 
+import api from "../services/api";
 import { getTags } from "../services/tagsService";
+import sseService from "../services/sseService";
+import { notificationStore } from "../store/notifications";
 
 export default {
   name: "HomeView",
@@ -75,32 +97,46 @@ export default {
       messagesError: null,
 
       selectedTag: null,
+      feedFilter: "all",
 
       createLoading: false,
       createError: null,
       createSuccess: null,
-      
-      pollingInterval: null, 
     };
   },
 
   async mounted() {
     await Promise.all([this.loadTags(), this.loadMessages()]);
 
-    this.pollingInterval = setInterval(() => {
+    // Connect to the SSE live feed – server pushes a notification on every new message.
+    sseService.connect();
+    sseService.onMessage((data) => {
+      // 1. Check if we should show a push notification
+      // We read the current subscriptions from the TagFilter component
+      if (this.$refs.tagFilter && data.tags) {
+        const subIds = this.$refs.tagFilter.mySubscriptions;
+        const subNames = this.tags
+          .filter((t) => subIds.includes(t.id))
+          .map((t) => t.name);
+          
+        const matchesSub = data.tags.some((tag) => subNames.includes(tag));
+        if (matchesSub) {
+          notificationStore.addNotification(data);
+          notificationStore.addToast(data);
+        }
+      }
+
+      // 2. Silently refresh the feed without showing a loading spinner.
       if (this.searchTerm) {
         this.searchMessages(true);
       } else {
         this.loadMessages(true);
       }
-      this.loadTags(true);
-    }, 10000);
+    });
   },
 
   beforeUnmount() {
-    if (this.pollingInterval) {
-      clearInterval(this.pollingInterval);
-    }
+    sseService.disconnect();
   },
 
   methods: {
@@ -147,6 +183,11 @@ export default {
       this.loadMessages(); 
     },
 
+    setFeedFilter(filter) {
+      this.feedFilter = filter;
+      this.loadMessages();
+    },
+
     async loadTags(isBackground = false) {
       if (!isBackground) {
         this.tagsLoading = true;
@@ -174,10 +215,10 @@ export default {
       
       this.messagesError = null;
       try {
-        let url = '/messages';
+        let url = `/messages?filter=${this.feedFilter}`;
         
         if (this.selectedTag) {
-          url += `?tag=${encodeURIComponent(this.selectedTag)}`;
+          url += `&tag=${encodeURIComponent(this.selectedTag)}`;
         }
 
         const response = await api.get(url);
@@ -245,10 +286,48 @@ export default {
   cursor: pointer;
 }
 
+.feed-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
 .searchBar {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex: 1;
+}
+
+.filter-toggle {
+  display: flex;
+  background: rgba(0,0,0,0.25);
+  border-radius: 12px;
+  border: 1px solid #3a4354;
+  padding: 4px;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: #a9b1c3;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  color: #fff;
+}
+
+.toggle-btn.active {
+  background: rgba(120, 160, 255, 0.15);
+  color: #78a0ff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .searchInput {

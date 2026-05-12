@@ -6,16 +6,19 @@
     </div>
 
     <AppFooter />
+    <ToastContainer />
   </div>
 </template>
 
 <script>
 import AppFooter from "./components/AppFooter.vue";
+import ToastContainer from "./components/ToastContainer.vue";
 
 export default {
   name: "App",
   components: {
-    AppFooter, 
+    AppFooter,
+    ToastContainer
   },
 };
 </script>
