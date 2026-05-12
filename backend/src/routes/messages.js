@@ -13,8 +13,7 @@ module.exports = (broadcaster) => {
   router.post("/", auth, async (req, res) => {
     try {
       const message = await messageService.createMessage(
-        { authorId: req.user.id, ...req.body },
-        broadcaster
+        { authorId: req.user.id, ...req.body }
       );
       return res.status(201).json(message);
     } catch (err) {
@@ -26,6 +25,12 @@ module.exports = (broadcaster) => {
   router.post("/:id/tags", auth, async (req, res) => {
     try {
       const result = await messageService.addTagToMessage(req.params.id, req.body.tagId);
+      
+      if (typeof broadcaster === "function") {
+        const fullMessage = await messageService.getMessageForBroadcast(req.params.id);
+        if (fullMessage) broadcaster(fullMessage);
+      }
+
       return res.status(201).json(result);
     } catch (err) {
       return handleError(res, err);

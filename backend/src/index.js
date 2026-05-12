@@ -11,7 +11,8 @@ let clients = [];
 
 const broadcaster = (data) => {
   clients.forEach((client) => {
-    if (client.tag && data.tags && !data.tags.includes(client.tag)) {
+    // Role filtering: only send if message is for ALL or matches client role
+    if (data.targetRole !== "ALL" && data.targetRole !== client.role) {
       return;
     }
 
@@ -203,7 +204,19 @@ app.use("/tags", tagsRouter);
 app.use("/messages", messagesRouter);
 
 app.get("/subscribe", (req, res) => {
-  const { tag } = req.query;
+  const { token } = req.query;
+
+  if (!token) {
+    return res.status(401).json({ error: "Missing token" });
+  }
+
+  let userPayload;
+  try {
+    const jwt = require("jsonwebtoken");
+    userPayload = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
@@ -216,14 +229,13 @@ app.get("/subscribe", (req, res) => {
   const newClient = {
     id: clientId,
     res,
-    tag,
+    userId: userPayload.userId,
+    role: userPayload.role,
   };
   clients.push(newClient);
 
   const initialData = {
-    message: `Connected to NewsCenter Live Feed. ${
-      tag ? "Filtering by tag: " + tag : "No tag filter applied."
-    }`,
+    message: "Connected to NewsCenter Live Feed.",
     clientId,
   };
   res.write(`data: ${JSON.stringify(initialData)}\n\n`);

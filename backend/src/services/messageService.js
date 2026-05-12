@@ -5,23 +5,18 @@ const ALLOWED_TARGET_ROLES = ["ALL", "STUDENT", "EMPLOYEE"];
 const THESAURUS_API = "https://www.openthesaurus.de/synonyme/search";
 
 /**
- * Creates a new message and broadcasts it to SSE clients.
- * Throws 400 if title or body are missing.
+ * Creates a new message and returns it.
+ * Broadcasting to SSE clients happens AFTER the tag is assigned (in the route layer),
+ * so the full message including tags is available at that point.
  *
  * @param {{ authorId: string, targetRole: string, title: string, body: string }} payload
- * @param {Function} broadcaster  - SSE broadcast function from index.js
  */
-async function createMessage({ authorId, targetRole, title, body }, broadcaster) {
+async function createMessage({ authorId, targetRole, title, body }) {
   if (!title || !body)
     throw { status: 400, message: "Bitte Titel und Text angeben." };
 
   const finalTargetRole = ALLOWED_TARGET_ROLES.includes(targetRole) ? targetRole : "ALL";
-
-  const message = await messageRepository.create({ authorId, targetRole: finalTargetRole, title, body });
-
-  if (typeof broadcaster === "function") broadcaster(message);
-
-  return message;
+  return messageRepository.create({ authorId, targetRole: finalTargetRole, title, body });
 }
 
 /**
@@ -39,6 +34,10 @@ async function addTagToMessage(messageId, tagId) {
     if (err.code === "23505") throw { status: 409, message: "Message already has this tag" };
     throw err;
   }
+}
+
+async function getMessageForBroadcast(id) {
+  return messageRepository.findByIdAdmin(id);
 }
 
 /**
@@ -92,6 +91,7 @@ async function getMessageById({ id, userRole }) {
 module.exports = {
   createMessage,
   addTagToMessage,
+  getMessageForBroadcast,
   getMessages,
   searchMessages,
   getMessageById,

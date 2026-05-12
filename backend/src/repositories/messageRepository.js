@@ -157,4 +157,21 @@ async function findById(id, userRole) {
   return result.rows[0] || null;
 }
 
-module.exports = { create, addTag, findFiltered, search, findById };
+/**
+ * Returns a single message by ID with NO role filter.
+ * Used exclusively for SSE broadcasting after tag assignment.
+ * @param {string} id
+ */
+async function findByIdAdmin(id) {
+  const result = await pool.query(
+    `SELECT ${MESSAGE_COLUMNS}
+     FROM messages m
+     ${MESSAGE_JOINS}
+     WHERE m.id = $1::uuid
+     GROUP BY m.id, u.display_name`,
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = { create, addTag, findFiltered, search, findById, findByIdAdmin };
