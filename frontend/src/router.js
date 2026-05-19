@@ -1,17 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from './views/HomeView.vue'
 import LandingView from './views/LandingView.vue'
+import SettingsView from './views/SettingsView.vue'
 
 const routes = [
     { 
       path: '/', 
-      component: LandingView,   // Diese Route ist NUR für Gäste (wer eingeloggt ist, braucht kein Login)
+      component: LandingView,
       meta: { guestOnly: true, title: 'Willkommen - NewsCenter' }
     },
     { 
       path: '/feed', 
       component: HomeView,
-      meta: { requiresAuth: true, title: 'Feed - NewsCenter' } // Diese Route braucht einen Login
+      meta: { requiresAuth: true, title: 'Feed - NewsCenter' }
+    },
+    {
+      path: '/settings',
+      component: SettingsView,
+      meta: { requiresAuth: true, title: 'Einstellungen - NewsCenter' }
     },
   ]
 

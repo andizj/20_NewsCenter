@@ -1,12 +1,12 @@
 <template>
   <header class="header">
-    <div class="brand">
+    <router-link to="/feed" class="brand">
       <img src="@/assets/logo2.png" alt="NewsCenter Logo" class="logo" />
       <div>
         <div class="title">NewsCenter</div>
         <div class="subtitle">Internal news & announcements</div>
       </div>
-    </div>
+    </router-link>
 
     <div class="actions">
       <div class="notification-wrapper">
@@ -32,6 +32,10 @@
           </div>
         </div>
       </div>
+
+      <button class="btn settings-btn" @click="$router.push('/settings')" title="Einstellungen">
+        ⚙️
+      </button>
       
       <button class="btn logout-btn" @click="logout">Logout</button>
     </div>
@@ -87,7 +91,7 @@ export default {
   border-radius: 16px;
   background: rgba(255,255,255,0.03);
 }
-.brand { display: flex; align-items: center; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; cursor: pointer; }
 .logo {
   width: 44px; height: 44px;
   border-radius: 14px;
