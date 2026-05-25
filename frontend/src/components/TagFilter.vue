@@ -59,7 +59,8 @@
 </template>
 
 <script>
-import { getSubscriptions, subscribe, unsubscribe } from '../services/subscriptionService';
+import { useSubscriptions } from '../composables/useSubscriptions';
+import { subscribe, unsubscribe } from '../services/subscriptionService';
 import { createTag } from '../services/tagsService';
 
 export default {
@@ -71,55 +72,45 @@ export default {
     error: String,
   },
   emits: ["select", "reload"],
-  
+
+  setup() {
+    const { subscriptions, isSubscribed, load } = useSubscriptions();
+    return { subscriptions, isSubscribed, load };
+  },
+
   data() {
-    return {
-      mySubscriptions: [],
-      newTagName: "" // Für das Eingabefeld
-    };
+    return { newTagName: "" };
   },
 
   async mounted() {
-    await this.loadSubscriptions();
+    await this.load().catch(e => console.error("Konnte Abos nicht laden", e));
   },
 
   methods: {
-    async loadSubscriptions() {
-      try {
-        const subs = await getSubscriptions();
-        this.mySubscriptions = subs.map(s => s.id); 
-      } catch (e) {
-        console.error("Konnte Abos nicht laden", e);
-      }
-    },
-
-    isSubscribed(tagId) {
-      return this.mySubscriptions.includes(tagId);
-    },
-
     async toggleSubscription(tag) {
       const id = tag.id;
       if (this.isSubscribed(id)) {
-        this.mySubscriptions = this.mySubscriptions.filter(subId => subId !== id);
-        try { await unsubscribe(id); } catch (e) { this.mySubscriptions.push(id); }
+        this.subscriptions = this.subscriptions.filter(s => s.id !== id);
+        try { await unsubscribe(id); }
+        catch { await this.load(); }
       } else {
-        this.mySubscriptions.push(id);
-        try { await subscribe(id); } catch (e) { this.mySubscriptions = this.mySubscriptions.filter(subId => subId !== id); }
+        this.subscriptions = [...this.subscriptions, tag];
+        try { await subscribe(id); }
+        catch { this.subscriptions = this.subscriptions.filter(s => s.id !== id); }
       }
     },
 
     refreshData() {
-      this.$emit('reload'); 
-      this.loadSubscriptions(); 
+      this.$emit('reload');
+      this.load();
     },
 
     async addTag() {
       if (!this.newTagName.trim()) return;
-      
       try {
         await createTag(this.newTagName);
-        this.newTagName = ""; // Feld leeren
-        this.$emit('reload'); // Liste neu laden, damit der neue Tag erscheint
+        this.newTagName = "";
+        this.$emit('reload');
       } catch (e) {
         alert("Fehler: " + (e.response?.data?.error || e.message));
       }

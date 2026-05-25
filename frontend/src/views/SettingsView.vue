@@ -162,53 +162,46 @@
 
 <script>
 import AppHeader from '../components/AppHeader.vue';
-import { getSubscriptions, subscribe, unsubscribe } from '../services/subscriptionService';
+import { useSubscriptions } from '../composables/useSubscriptions';
 import { getTags } from '../services/tagsService';
 
 export default {
   name: 'SettingsView',
   components: { AppHeader },
 
+  setup() {
+    const { subscriptions, loading, load, addSubscription, removeSubscription } = useSubscriptions();
+    return {
+      subscribedTags: subscriptions,
+      subsLoading: loading,
+      loadSubscriptions: load,
+      addSubscription,
+      removeSubscription,
+    };
+  },
+
   data() {
     const userRaw = sessionStorage.getItem('user');
     let userRole = 'UNBEKANNT';
-    try { userRole = JSON.parse(userRaw)?.role ?? 'UNBEKANNT'; } catch (e) { /* ignore */ }
+    try { userRole = JSON.parse(userRaw)?.role ?? 'UNBEKANNT'; } catch {}
 
     return {
       userRole,
-
-      // Tag Agent
-      subscribedTags: [],
       allTags: [],
-      subsLoading: true,
       subError: null,
       selectedNewTag: '',
       adding: false,
       removing: null,
-
-      // Publish Agent (UI only)
-      publishAgent: {
-        autoTagging: true,
-      },
-
-      // Message Agent (UI only)
-      messageAgent: {
-        summarize: false,
-        similarMessages: false,
-      },
+      publishAgent: { autoTagging: true },
+      messageAgent: { summarize: false, similarMessages: false },
     };
   },
 
   computed: {
     roleBadgeClass() {
-      const map = {
-        STUDENT: 'role-student',
-        EMPLOYEE: 'role-employee',
-        ADMIN: 'role-admin',
-      };
+      const map = { STUDENT: 'role-student', EMPLOYEE: 'role-employee', ADMIN: 'role-admin' };
       return map[this.userRole] ?? 'role-default';
     },
-
     availableTags() {
       const subscribedIds = new Set(this.subscribedTags.map(t => t.id));
       return this.allTags.filter(t => !subscribedIds.has(t.id));
@@ -216,26 +209,15 @@ export default {
   },
 
   async mounted() {
-    await Promise.all([this.loadSubscriptions(), this.loadAllTags()]);
+    await Promise.all([
+      this.loadSubscriptions().catch(() => { this.subError = 'Abonnements konnten nicht geladen werden.'; }),
+      this.loadAllTags(),
+    ]);
   },
 
   methods: {
-    async loadSubscriptions() {
-      this.subsLoading = true;
-      this.subError = null;
-      try {
-        this.subscribedTags = await getSubscriptions();
-      } catch (e) {
-        this.subError = 'Abonnements konnten nicht geladen werden.';
-      } finally {
-        this.subsLoading = false;
-      }
-    },
-
     async loadAllTags() {
-      try {
-        this.allTags = await getTags();
-      } catch (e) { /* Tags optional – ignore */ }
+      try { this.allTags = await getTags(); } catch {}
     },
 
     async addSub() {
@@ -243,10 +225,9 @@ export default {
       this.adding = true;
       this.subError = null;
       try {
-        await subscribe(this.selectedNewTag);
+        await this.addSubscription(this.selectedNewTag);
         this.selectedNewTag = '';
-        await this.loadSubscriptions();
-      } catch (e) {
+      } catch {
         this.subError = 'Hinzufügen fehlgeschlagen.';
       } finally {
         this.adding = false;
@@ -257,9 +238,8 @@ export default {
       this.removing = tag.id;
       this.subError = null;
       try {
-        await unsubscribe(tag.id);
-        this.subscribedTags = this.subscribedTags.filter(t => t.id !== tag.id);
-      } catch (e) {
+        await this.removeSubscription(tag.id);
+      } catch {
         this.subError = 'Entfernen fehlgeschlagen.';
       } finally {
         this.removing = null;
