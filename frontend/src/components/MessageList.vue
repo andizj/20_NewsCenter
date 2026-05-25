@@ -41,27 +41,4 @@ export default {
 };
 </script>
 
-<style scoped>
-.panel {
-  border: 1px solid #2a2f3a;
-  border-radius: 16px;
-  padding: 14px;
-  background: rgba(255,255,255,0.03);
-}
-.panelHeader { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
-.panelTitle { font-weight: 800; }
-.panelSub { font-size: 12px; color: #a9b1c3; margin-top: 2px; }
-.btn {
-  padding: 9px 12px;
-  border-radius: 10px;
-  border: 1px solid #3a4354;
-  background: rgba(255,255,255,0.05);
-  color: inherit;
-  cursor: pointer;
-}
-.btn:hover { background: rgba(255,255,255,0.08); }
-.btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.grid { display: grid; gap: 12px; margin-top: 12px; }
-.hint { margin-top: 10px; color: #a9b1c3; font-size: 12px; }
-.error { margin-top: 10px; color: #ff6b6b; font-size: 12px; }
-</style>
+<style scoped src="../styles/MessageList.css"></style>
