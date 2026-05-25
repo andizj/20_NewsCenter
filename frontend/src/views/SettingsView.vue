@@ -183,7 +183,7 @@ export default {
   data() {
     const userRaw = sessionStorage.getItem('user');
     let userRole = 'UNBEKANNT';
-    try { userRole = JSON.parse(userRaw)?.role ?? 'UNBEKANNT'; } catch {}
+    try { userRole = JSON.parse(userRaw)?.role ?? 'UNBEKANNT'; } catch (e) { /* invalid JSON */ }
 
     return {
       userRole,
@@ -217,7 +217,7 @@ export default {
 
   methods: {
     async loadAllTags() {
-      try { this.allTags = await getTags(); } catch {}
+      try { this.allTags = await getTags(); } catch (e) { /* tags unavailable */ }
     },
 
     async addSub() {

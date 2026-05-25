@@ -173,11 +173,37 @@ Frontend ↔ Backend ↔ Database communication is fully implemented.
 Authentication and security basics (password hashing & LDAP integration) are implemented.
 Tagging logic (Many-to-Many relations & Thesaurus search) is fully functional.
 
+## Testing
+
+The backend includes unit tests using [Jest](https://jestjs.io/). Tests run without a database or any external services — repositories and external APIs are mocked.
+
+### What is tested
+
+| File | Covered functions |
+|---|---|
+| `tests/authService.test.js` | `hashPassword`, `comparePassword`, `generateToken` |
+| `tests/messageService.test.js` | `createMessage` (validation, role fallback), `getMessageById` (found / 404) |
+
+Note: LDAP authentication is intentionally excluded from unit tests as it depends on an external server.
+
+### Running the tests
+
+```bash
+cd backend
+npm test
+```
+
+Expected output:
+
+```
+Test Suites: 2 passed, 2 total
+Tests:       9 passed, 9 total
+```
+
 ## Future Improvements
 True Real-Time: Replace polling with WebSockets for instant updates.
 Admin Dashboard: UI to delete messages or manage users.
 File Uploads: Allow images or attachments in messages.
-Automated Tests: Unit and Integration tests.
 
 ## About This Project
 This project was developed as part of a university course (Innovation Lab).
