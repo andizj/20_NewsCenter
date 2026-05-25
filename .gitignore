@@ -6,3 +6,5 @@ backend/node_modules/
 
 
 *.log
+
+.claude/settings.local.json
