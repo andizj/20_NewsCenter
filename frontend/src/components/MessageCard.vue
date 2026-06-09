@@ -11,6 +11,16 @@
     <h3 class="title">{{ message.title }}</h3>
 
     <p class="body">{{ message.body }}</p>
+    <div class="aiActions">
+      <button class="aiBtn" @click="summarizeMessage" :disabled="summaryLoading">
+        {{ summaryLoading ? "Wird zusammengefasst..." : "KI-Zusammenfassung" }}
+      </button>
+    </div>
+
+    <div v-if="summary" class="summaryBox">
+      <strong>Zusammenfassung:</strong>
+      <p>{{ summary }}</p>
+    </div>
     
     <div class="tags" v-if="message.tags && message.tags.length > 0">
       <span class="roleBadge" :class="message.targetRole?.toLowerCase()">
@@ -25,10 +35,17 @@
 </template>
 
 <script>
+import api from "../services/api";
 export default {
   name: "MessageCard",
   props: {
     message: { type: Object, required: true },
+  },
+  data() {
+    return {
+      summary: null,
+      summaryLoading: false,
+    };
   },
   methods: {
     formatDate(iso) {
@@ -49,7 +66,21 @@ export default {
       if (role === "STUDENT") return "🎓 Student";
       if (role === "EMPLOYEE") return "🏢 Employee";
       return "🌍 All";
+
+  },
+  async summarizeMessage() {
+    this.summaryLoading = true;
+
+    try {
+      const response = await api.post(`/messages/${this.message.id}/summarize`);
+      this.summary = response.data.summary;
+    } catch (err) {
+      console.error("Summary error:", err);
+      this.summary = "Zusammenfassung konnte nicht erstellt werden.";
+    } finally {
+      this.summaryLoading = false;
     }
+  },
   },
 };
 </script>

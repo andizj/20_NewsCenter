@@ -78,6 +78,34 @@
   font-size: 11px;
   font-weight: 600;
 }
+
+.aiActions {
+  margin-top: 10px;
+}
+
+.aiBtn {
+  border: 1px solid #3a4354;
+  border-radius: 10px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.aiBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.summaryBox {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #3a4354;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+}
 .roleBadge.student { background: rgba(100, 150, 255, 0.15); color: #6ea8ff; }
 .roleBadge.employee { background: rgba(255, 180, 100, 0.15); color: #ffb464; }
 .roleBadge.all { background: rgba(150, 150, 150, 0.15); color: #ccc; }

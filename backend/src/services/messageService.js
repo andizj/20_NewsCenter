@@ -1,4 +1,8 @@
 const axios = require("axios");
+const { Ollama } = require("ollama");
+const ollama = new Ollama({
+  host: "http://host.docker.internal:11434",
+});
 const messageRepository = require("../repositories/messageRepository");
 
 const ALLOWED_TARGET_ROLES = ["ALL", "STUDENT", "EMPLOYEE"];
@@ -88,6 +92,47 @@ async function getMessageById({ id, userRole }) {
   return message;
 }
 
+async function summarizeMessage({ id, userRole }) {
+  const message = await messageRepository.findById(id, userRole);
+
+  if (!message) {
+    throw { status: 404, message: "Message not found" };
+  }
+
+  const prompt = `
+Erstelle eine kurze Zusammenfassung der folgenden Nachricht.
+
+Regeln:
+- Maximal 3 Sätze
+- Nur die wichtigsten Informationen
+- Keine Einleitung wie "Hier ist die Zusammenfassung"
+- Keine Aufzählungen
+- Keine Interpretation oder eigene Meinung
+- Antworte ausschließlich mit der Zusammenfassung
+
+Titel:
+${message.title}
+
+Nachricht:
+${message.body}
+`;
+
+  const response = await ollama.chat({
+    model: "llama3",
+    messages: [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+  });
+
+  return {
+    summary: response.message.content,
+  };
+}
+
+
 module.exports = {
   createMessage,
   addTagToMessage,
@@ -95,4 +140,5 @@ module.exports = {
   getMessages,
   searchMessages,
   getMessageById,
+  summarizeMessage,
 };

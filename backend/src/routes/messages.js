@@ -69,6 +69,20 @@ module.exports = (broadcaster) => {
     }
   });
 
+  /** POST /messages/:id/summarize – AI summary (auth required) */
+  router.post("/:id/summarize", auth, async (req, res) => {
+    try {
+      const summary = await messageService.summarizeMessage({
+        id: req.params.id,
+        userRole: req.user.role,
+      });
+
+      return res.json(summary);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  });
+
   /** GET /messages/:id – Get a single message (auth required) */
   router.get("/:id", auth, async (req, res) => {
     try {
