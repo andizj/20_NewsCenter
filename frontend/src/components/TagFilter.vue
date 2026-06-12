@@ -71,7 +71,7 @@ export default {
     loading: Boolean,
     error: String,
   },
-  emits: ["select", "reload"],
+  emits: ["select", "reload", "subscriptions-changed"],
 
   setup() {
     const { subscriptions, isSubscribed, load } = useSubscriptions();
@@ -84,6 +84,7 @@ export default {
 
   async mounted() {
     await this.load().catch(e => console.error("Konnte Abos nicht laden", e));
+    this.$emit("subscriptions-changed", this.subscriptions);
   },
 
   methods: {
@@ -98,11 +99,13 @@ export default {
         try { await subscribe(id); }
         catch { this.subscriptions = this.subscriptions.filter(s => s.id !== id); }
       }
+      this.$emit("subscriptions-changed", this.subscriptions);
     },
 
-    refreshData() {
+    async refreshData() {
       this.$emit('reload');
-      this.load();
+      await this.load();
+      this.$emit("subscriptions-changed", this.subscriptions);
     },
 
     async addTag() {

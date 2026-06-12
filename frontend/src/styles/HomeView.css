@@ -12,6 +12,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 14px;
+  flex-wrap: wrap;
 }
 
 .searchBar {
@@ -19,6 +20,7 @@
   gap: 10px;
   align-items: center;
   flex: 1;
+  min-width: 240px;
 }
 
 .filter-toggle {
@@ -27,6 +29,24 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-medium);
   padding: 4px;
+  flex-shrink: 0;
+}
+
+.read-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid rgba(120, 160, 255, 0.45);
+  border-radius: var(--radius-md);
+  background: rgba(120, 160, 255, 0.08);
+}
+
+.read-filter-label {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .toggle-btn {
@@ -39,6 +59,11 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.toggle-btn.read-filter-btn {
+  border: 1px solid var(--color-border-medium);
+  background: var(--surface-input);
 }
 
 .toggle-btn:hover {
@@ -71,4 +96,10 @@
 
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .feed-controls { align-items: stretch; }
+  .searchBar { width: 100%; }
+  .toggle-btn { flex: 1; }
 }

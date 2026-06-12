@@ -1,6 +1,11 @@
 <template>
   <div class="page">
-    <AppHeader @refresh="refreshAll" />
+    <AppHeader
+      @refresh="refreshAll"
+      @mark-notification-read="onMessageMarkedRead"
+      @mark-notifications-read="markSubscribedNewNotificationsRead"
+      @notification-selected="goToNotificationMessage"
+    />
 
     <div class="layout">
       <TagFilter
@@ -11,6 +16,7 @@
         :error="tagsError"
         @select="onSelectTag"
         @reload="loadTags"
+        @subscriptions-changed="onSubscriptionsChanged"
       />
 
       <main class="main">
@@ -58,12 +64,34 @@
           </div>
         </div>
 
+        <div class="read-filter-bar">
+          <span class="read-filter-label">Statusfilter:</span>
+          <button
+            class="toggle-btn read-filter-btn"
+            :class="{ active: showUnread }"
+            @click="toggleReadFilter('unread')"
+          >
+            Ungelesen
+          </button>
+          <button
+            class="toggle-btn read-filter-btn"
+            :class="{ active: showRead }"
+            @click="toggleReadFilter('read')"
+          >
+            Gelesen
+          </button>
+        </div>
+
         <MessageList
-          :messages="messages"
+          :messages="visibleMessages"
           :loading="messagesLoading"
           :error="messagesError"
           :selectedTag="selectedTag"
+          :showUnread="showUnread"
+          :showRead="showRead"
           @reload="loadMessages"
+          @marked-read="onMessageMarkedRead"
+          @toggle-read-filter="toggleReadFilter"
         />
       </main>
     </div>
@@ -78,8 +106,12 @@ import CreateMessageForm from "../components/CreateMessageForm.vue";
 
 import api from "../services/api";
 import { getTags } from "../services/tagsService";
+import { getSubscriptions } from "../services/subscriptionService";
 import sseService from "../services/sseService";
 import { notificationStore } from "../store/notifications";
+
+const UNREAD_STORAGE_PREFIX = "newscenter_unread_";
+const NEW_MESSAGE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export default {
   name: "HomeView",
@@ -98,6 +130,10 @@ export default {
 
       selectedTag: null,
       feedFilter: "all",
+      showUnread: true,
+      showRead: true,
+      subscriptions: [],
+      newMessageRefreshTimer: null,
 
       createLoading: false,
       createError: null,
@@ -106,24 +142,36 @@ export default {
   },
 
   async mounted() {
-    await Promise.all([this.loadTags(), this.loadMessages()]);
+    await Promise.all([this.loadTags(), this.loadSubscriptions()]);
+    await this.loadMessages();
+    if (this.$route.query.message) {
+      await this.goToNotificationMessage(this.$route.query.message);
+    }
+    this.newMessageRefreshTimer = setInterval(this.refreshMessageState, 60000);
 
     // Connect to the SSE live feed – server pushes a notification on every new message.
     sseService.connect();
     sseService.onMessage((data) => {
-      // 1. Check if we should show a push notification
-      // We read the current subscriptions from the TagFilter component
-      if (this.$refs.tagFilter && data.tags) {
-        const subIds = this.$refs.tagFilter.mySubscriptions;
-        const subNames = this.tags
-          .filter((t) => subIds.includes(t.id))
-          .map((t) => t.name);
-          
-        const matchesSub = data.tags.some((tag) => subNames.includes(tag));
-        if (matchesSub) {
-          notificationStore.addNotification(data);
-          notificationStore.addToast(data);
+      this.markMessageUnread(data.id);
+
+      try {
+        // 1. Check if we should show a push notification
+        // We read the current subscriptions from the TagFilter component
+        if (this.$refs.tagFilter && data.tags) {
+          const subscriptions = this.subscriptions;
+          const subIds = subscriptions.map((subscription) => subscription.id);
+          const subNames = this.tags
+            .filter((t) => subIds.includes(t.id))
+            .map((t) => t.name);
+            
+          const matchesSub = data.tags.some((tag) => subNames.includes(tag));
+          if (matchesSub) {
+            notificationStore.addNotification(data);
+            notificationStore.addToast(data);
+          }
         }
+      } catch (e) {
+        console.error("Notification error:", e);
       }
 
       // 2. Silently refresh the feed without showing a loading spinner.
@@ -136,10 +184,100 @@ export default {
   },
 
   beforeUnmount() {
+    if (this.newMessageRefreshTimer) {
+      clearInterval(this.newMessageRefreshTimer);
+    }
     sseService.disconnect();
   },
 
+  computed: {
+    visibleMessages() {
+      return this.messages.filter((message) => {
+        const isUnread = message.isUnread === true;
+        return (isUnread && this.showUnread) || (!isUnread && this.showRead);
+      });
+    },
+  },
+
   methods: {
+    async goToNotificationMessage(messageId) {
+      if (!messageId) return;
+
+      this.searchTerm = "";
+      this.selectedTag = null;
+      this.feedFilter = "all";
+      this.showUnread = true;
+      this.showRead = true;
+
+      await this.loadMessages();
+      await this.$nextTick();
+
+      const target = document.getElementById(`message-${messageId}`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    },
+
+    unreadStorageKey(messageId) {
+      return `${UNREAD_STORAGE_PREFIX}${messageId}`;
+    },
+
+    isMessageNew(message) {
+      const createdAt = new Date(message.createdAt).getTime();
+      if (Number.isNaN(createdAt)) return false;
+
+      const age = Date.now() - createdAt;
+      return age >= 0 && age <= NEW_MESSAGE_WINDOW_MS;
+    },
+
+    messageHasSubscribedTag(message) {
+      const subscribedTagNames = this.subscriptions.map((subscription) => subscription.name);
+      return (message.tags || []).some((tag) => subscribedTagNames.includes(tag));
+    },
+
+    getMessageUnreadState(message, isSubscribedNew) {
+      const storedValue = localStorage.getItem(this.unreadStorageKey(message.id));
+      if (!this.isMessageNew(message)) return false;
+      if (storedValue === "true") return true;
+      if (storedValue === "false") return false;
+      return isSubscribedNew;
+    },
+
+    withMessageState(messages) {
+      return messages.map((message) => {
+        const isNew = this.isMessageNew(message);
+        const isSubscribedNew = isNew && this.messageHasSubscribedTag(message);
+
+        return {
+          ...message,
+          isNew,
+          isSubscribedNew,
+          isUnread: this.getMessageUnreadState(message, isSubscribedNew),
+        };
+      });
+    },
+
+    refreshMessageState() {
+      this.messages = this.withMessageState(this.messages);
+      this.syncNotifications();
+    },
+
+    syncNotifications() {
+      notificationStore.setNewSubscribed(
+        this.messages.filter((message) => message.isSubscribedNew)
+      );
+    },
+
+    markMessageUnread(messageId) {
+      if (localStorage.getItem(this.unreadStorageKey(messageId)) === "false") return;
+
+      localStorage.setItem(this.unreadStorageKey(messageId), "true");
+      this.messages = this.messages.map((message) => (
+        message.id === messageId ? { ...message, isUnread: true } : message
+      ));
+      this.syncNotifications();
+    },
+
     async searchMessages(isBackground = false) {
       if (!isBackground) {
         this.messagesLoading = true;
@@ -157,7 +295,8 @@ export default {
             `/messages/search?q=${encodeURIComponent(this.searchTerm)}`
         );
 
-        this.messages = response.data;
+        this.messages = this.withMessageState(response.data);
+        this.syncNotifications();
       } catch (e) {
         if (!isBackground) {
           this.messagesError = e?.response?.data?.error || e?.message || String(e);
@@ -175,7 +314,22 @@ export default {
     },
 
     async refreshAll() {
-      await Promise.all([this.loadTags(), this.loadMessages()]);
+      await Promise.all([this.loadTags(), this.loadSubscriptions()]);
+      await this.loadMessages();
+    },
+
+    async loadSubscriptions() {
+      try {
+        this.subscriptions = await getSubscriptions();
+      } catch (e) {
+        console.error("Subscription loading error:", e);
+        this.subscriptions = [];
+      }
+    },
+
+    onSubscriptionsChanged(subscriptions) {
+      this.subscriptions = subscriptions;
+      this.refreshMessageState();
     },
 
     onSelectTag(tagName) {
@@ -186,6 +340,17 @@ export default {
     setFeedFilter(filter) {
       this.feedFilter = filter;
       this.loadMessages();
+    },
+
+    toggleReadFilter(filter) {
+      if (filter === "unread") {
+        if (this.showUnread && !this.showRead) return;
+        this.showUnread = !this.showUnread;
+        return;
+      }
+
+      if (this.showRead && !this.showUnread) return;
+      this.showRead = !this.showRead;
     },
 
     async loadTags(isBackground = false) {
@@ -222,7 +387,8 @@ export default {
         }
 
         const response = await api.get(url);
-        this.messages = response.data;
+        this.messages = this.withMessageState(response.data);
+        this.syncNotifications();
 
       } catch (e) {
         if (!isBackground) {
@@ -257,6 +423,8 @@ export default {
           tagId: payload.tagId
         });
 
+        this.markMessageUnread(newMessageId);
+
         this.createSuccess = "Nachricht erfolgreich veröffentlicht!";
         
         // Feed neu laden
@@ -270,6 +438,27 @@ export default {
           setTimeout(() => (this.createSuccess = null), 3000);
         }
       }
+    },
+
+    onMessageMarkedRead(messageId) {
+      localStorage.setItem(this.unreadStorageKey(messageId), "false");
+      this.messages = this.messages.map((message) => (
+        message.id === messageId ? { ...message, isUnread: false } : message
+      ));
+      this.syncNotifications();
+    },
+
+    markSubscribedNewNotificationsRead() {
+      this.messages
+        .filter((message) => message.isSubscribedNew)
+        .forEach((message) => {
+          localStorage.setItem(this.unreadStorageKey(message.id), "false");
+        });
+
+      this.messages = this.messages.map((message) => (
+        message.isSubscribedNew ? { ...message, isUnread: false } : message
+      ));
+      notificationStore.markAllRead();
     },
   },
 };

@@ -1,11 +1,22 @@
 <template>
-  <article class="card">
+  <article
+    :id="`message-${message.id}`"
+    class="card"
+    :class="{ unread: message.isUnread }"
+    @mouseenter="startMarkAsReadTimer"
+    @mouseleave="clearMarkAsReadTimer"
+  >
     
     <div class="header">
       <div class="author-info">
         <code class="code">{{ message.authorName }}</code>
       </div>
-      <div class="date">{{ formatDate(message.createdAt) }}</div>
+      <div class="meta">
+        <span class="readStatus" :class="{ unread: message.isUnread }">
+          {{ message.isUnread ? "Ungelesen" : "Gelesen" }}
+        </span>
+        <div class="date">{{ formatDate(message.createdAt) }}</div>
+      </div>
     </div>
 
     <h3 class="title">{{ message.title }}</h3>
@@ -36,8 +47,12 @@
 
 <script>
 import api from "../services/api";
+
+const MARK_AS_READ_DELAY_MS = 1500;
+
 export default {
   name: "MessageCard",
+  emits: ["marked-read"],
   props: {
     message: { type: Object, required: true },
   },
@@ -45,9 +60,29 @@ export default {
     return {
       summary: null,
       summaryLoading: false,
+      markAsReadTimer: null,
     };
   },
+  beforeUnmount() {
+    this.clearMarkAsReadTimer();
+  },
   methods: {
+    startMarkAsReadTimer() {
+      if (!this.message.isUnread || this.markAsReadTimer) return;
+
+      this.markAsReadTimer = setTimeout(() => {
+        this.markAsReadTimer = null;
+        this.$emit("marked-read", this.message.id);
+      }, MARK_AS_READ_DELAY_MS);
+    },
+
+    clearMarkAsReadTimer() {
+      if (!this.markAsReadTimer) return;
+
+      clearTimeout(this.markAsReadTimer);
+      this.markAsReadTimer = null;
+    },
+
     formatDate(iso) {
       try {
         const date = new Date(iso);
