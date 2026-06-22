@@ -111,6 +111,9 @@
 
 .aiActions {
   margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .aiBtn {
@@ -126,6 +129,10 @@
 .aiBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.aiBtn.secondary {
+  color: var(--color-text-muted);
 }
 
 .summaryBox {

@@ -23,12 +23,25 @@
 
     <p class="body">{{ message.body }}</p>
     <div class="aiActions">
-      <button class="aiBtn" @click="summarizeMessage" :disabled="summaryLoading">
-        {{ summaryLoading ? "Wird zusammengefasst..." : "KI-Zusammenfassung" }}
+      <button v-if="summaryDisabled" class="aiBtn" @click="setSummaryDisabled(false)">
+        🤖 Zusammenfassung aktivieren
       </button>
+
+      <template v-else>
+        <button v-if="!summary" class="aiBtn" @click="summarizeMessage" :disabled="summaryLoading">
+          {{ summaryButtonLabel }}
+        </button>
+        <button
+          v-if="autoSummarize || summary"
+          class="aiBtn secondary"
+          @click="setSummaryDisabled(true)"
+        >
+          🤖 Zusammenfassung deaktivieren
+        </button>
+      </template>
     </div>
 
-    <div v-if="summary" class="summaryBox">
+    <div v-if="summary && !summaryDisabled" class="summaryBox">
       <strong>Zusammenfassung:</strong>
       <p>{{ summary }}</p>
     </div>
@@ -49,24 +62,78 @@
 import api from "../services/api";
 
 const MARK_AS_READ_DELAY_MS = 1500;
+const SUMMARY_DISABLED_STORAGE_PREFIX = "newscenter_summary_disabled_";
 
 export default {
   name: "MessageCard",
   emits: ["marked-read"],
   props: {
     message: { type: Object, required: true },
+    autoSummarize: { type: Boolean, default: false },
   },
   data() {
     return {
       summary: null,
       summaryLoading: false,
+      summaryDisabled: false,
+      summaryRequestId: 0,
       markAsReadTimer: null,
     };
   },
+  computed: {
+    summaryButtonLabel() {
+      if (this.summaryLoading) return "Wird zusammengefasst...";
+      return "🤖 Zusammenfassung";
+    },
+  },
+  watch: {
+    autoSummarize() {
+      this.summarizeIfEnabled();
+    },
+    "message.id"() {
+      this.summary = null;
+      this.summaryLoading = false;
+      this.summaryRequestId += 1;
+      this.loadSummaryDisabledState();
+      this.summarizeIfEnabled();
+    },
+  },
+  mounted() {
+    this.loadSummaryDisabledState();
+    this.summarizeIfEnabled();
+  },
   beforeUnmount() {
+    this.summaryRequestId += 1;
     this.clearMarkAsReadTimer();
   },
   methods: {
+    summaryDisabledStorageKey() {
+      return `${SUMMARY_DISABLED_STORAGE_PREFIX}${this.message.id}`;
+    },
+
+    loadSummaryDisabledState() {
+      this.summaryDisabled = localStorage.getItem(this.summaryDisabledStorageKey()) === "true";
+    },
+
+    setSummaryDisabled(disabled) {
+      this.summaryDisabled = disabled;
+
+      if (disabled) {
+        localStorage.setItem(this.summaryDisabledStorageKey(), "true");
+        this.summaryRequestId += 1;
+        this.summaryLoading = false;
+        return;
+      }
+
+      localStorage.removeItem(this.summaryDisabledStorageKey());
+      this.summarizeIfEnabled();
+    },
+
+    summarizeIfEnabled() {
+      if (!this.autoSummarize || this.summary || this.summaryLoading || this.summaryDisabled) return;
+      this.summarizeMessage();
+    },
+
     startMarkAsReadTimer() {
       if (!this.message.isUnread || this.markAsReadTimer) return;
 
@@ -101,21 +168,31 @@ export default {
       if (role === "STUDENT") return "🎓 Student";
       if (role === "EMPLOYEE") return "🏢 Employee";
       return "🌍 All";
+    },
 
-  },
-  async summarizeMessage() {
-    this.summaryLoading = true;
+    async summarizeMessage() {
+      if (this.summaryLoading || this.summaryDisabled) return;
 
-    try {
-      const response = await api.post(`/messages/${this.message.id}/summarize`);
-      this.summary = response.data.summary;
-    } catch (err) {
-      console.error("Summary error:", err);
-      this.summary = "Zusammenfassung konnte nicht erstellt werden.";
-    } finally {
-      this.summaryLoading = false;
-    }
-  },
+      const requestId = this.summaryRequestId + 1;
+      this.summaryRequestId = requestId;
+      this.summaryLoading = true;
+
+      try {
+        const response = await api.post(`/messages/${this.message.id}/summarize`);
+        if (requestId === this.summaryRequestId && !this.summaryDisabled) {
+          this.summary = response.data.summary;
+        }
+      } catch (err) {
+        console.error("Summary error:", err);
+        if (requestId === this.summaryRequestId && !this.summaryDisabled) {
+          this.summary = "Zusammenfassung konnte nicht erstellt werden.";
+        }
+      } finally {
+        if (requestId === this.summaryRequestId) {
+          this.summaryLoading = false;
+        }
+      }
+    },
   },
 };
 </script>

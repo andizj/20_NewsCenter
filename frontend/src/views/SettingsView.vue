@@ -123,13 +123,13 @@
         <div class="message-agent-grid">
           <div class="toggle-row">
             <div>
-              <div class="toggle-label">Nachricht zusammenfassen</div>
+              <div class="toggle-label">Nachrichten zusammenfassen</div>
               <div class="toggle-sublabel">Zeigt eine KI-generierte Kurzzusammenfassung unterhalb jeder Nachricht an.</div>
             </div>
             <button
               class="toggle-switch"
               :class="{ on: messageAgent.summarize }"
-              @click="messageAgent.summarize = !messageAgent.summarize"
+              @click="toggleMessageSummaries"
             >
               <span class="toggle-knob" />
             </button>
@@ -151,8 +151,8 @@
         </div>
 
         <div class="coming-soon">
-          <span class="cs-badge">Bald verfügbar</span>
-          Diese Funktionen sind in Entwicklung und noch nicht aktiv.
+          <span class="cs-badge">Hinweis</span>
+          Zusammenfassungen werden automatisch im Feed angezeigt. Ähnliche Nachrichten sind noch in Entwicklung.
         </div>
       </section>
 
@@ -164,6 +164,8 @@
 import AppHeader from '../components/AppHeader.vue';
 import { useSubscriptions } from '../composables/useSubscriptions';
 import { getTags } from '../services/tagsService';
+
+const SUMMARIZE_MESSAGES_STORAGE_KEY = 'newscenter_summarize_messages';
 
 export default {
   name: 'SettingsView',
@@ -193,7 +195,10 @@ export default {
       adding: false,
       removing: null,
       publishAgent: { autoTagging: true },
-      messageAgent: { summarize: false, similarMessages: false },
+      messageAgent: {
+        summarize: localStorage.getItem(SUMMARIZE_MESSAGES_STORAGE_KEY) === 'true',
+        similarMessages: false,
+      },
     };
   },
 
@@ -218,6 +223,11 @@ export default {
   methods: {
     async loadAllTags() {
       try { this.allTags = await getTags(); } catch (e) { /* tags unavailable */ }
+    },
+
+    toggleMessageSummaries() {
+      this.messageAgent.summarize = !this.messageAgent.summarize;
+      localStorage.setItem(SUMMARIZE_MESSAGES_STORAGE_KEY, String(this.messageAgent.summarize));
     },
 
     async addSub() {

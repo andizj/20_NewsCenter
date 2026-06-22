@@ -89,6 +89,7 @@
           :selectedTag="selectedTag"
           :showUnread="showUnread"
           :showRead="showRead"
+          :autoSummarize="summarizeMessages"
           @reload="loadMessages"
           @marked-read="onMessageMarkedRead"
           @toggle-read-filter="toggleReadFilter"
@@ -111,6 +112,7 @@ import sseService from "../services/sseService";
 import { notificationStore } from "../store/notifications";
 
 const UNREAD_STORAGE_PREFIX = "newscenter_unread_";
+const SUMMARIZE_MESSAGES_STORAGE_KEY = "newscenter_summarize_messages";
 const NEW_MESSAGE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export default {
@@ -132,6 +134,7 @@ export default {
       feedFilter: "all",
       showUnread: true,
       showRead: true,
+      summarizeMessages: localStorage.getItem(SUMMARIZE_MESSAGES_STORAGE_KEY) === "true",
       subscriptions: [],
       newMessageRefreshTimer: null,
 
@@ -148,6 +151,7 @@ export default {
       await this.goToNotificationMessage(this.$route.query.message);
     }
     this.newMessageRefreshTimer = setInterval(this.refreshMessageState, 60000);
+    window.addEventListener("storage", this.onStorageChange);
 
     // Connect to the SSE live feed – server pushes a notification on every new message.
     sseService.connect();
@@ -187,6 +191,7 @@ export default {
     if (this.newMessageRefreshTimer) {
       clearInterval(this.newMessageRefreshTimer);
     }
+    window.removeEventListener("storage", this.onStorageChange);
     sseService.disconnect();
   },
 
@@ -200,6 +205,11 @@ export default {
   },
 
   methods: {
+    onStorageChange(event) {
+      if (event.key !== SUMMARIZE_MESSAGES_STORAGE_KEY) return;
+      this.summarizeMessages = event.newValue === "true";
+    },
+
     async goToNotificationMessage(messageId) {
       if (!messageId) return;
 

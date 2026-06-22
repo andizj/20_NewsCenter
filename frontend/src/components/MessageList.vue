@@ -38,6 +38,7 @@
         v-for="m in messages"
         :key="m.id"
         :message="m"
+        :autoSummarize="autoSummarize"
         @marked-read="$emit('marked-read', $event)"
       />
     </div>
@@ -62,6 +63,7 @@ export default {
     selectedTag: { type: [String, null], default: null },
     showUnread: { type: Boolean, default: true },
     showRead: { type: Boolean, default: true },
+    autoSummarize: { type: Boolean, default: false },
   },
 };
 </script>
