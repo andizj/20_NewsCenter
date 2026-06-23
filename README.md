@@ -1,210 +1,294 @@
-# NewsCenter 
+# NewsCenter
 
-NewsCenter is a web-based communication platform built around a publish–subscribe model.  
-It enables users to view tagged announcements and news items through a clean web interface, while publishers can create and distribute messages to specific topics.
+NewsCenter is a full-stack web application for publishing and receiving campus announcements. Users can register or log in, subscribe to tags, create messages, and read a personalized feed based on tags and user roles.
 
-The project serves as a practical example of building a modern full-stack web application with a clear separation between frontend, backend, and database layers.
+The project has three main parts:
 
+- `frontend`: Vue 3 app
+- `backend`: Node.js / Express REST API
+- `db`: PostgreSQL schema and seed data
 
-## What this project demonstrates 
+## Features
 
-The NewsCenter codebase focuses on the following key aspects:
+- Local user registration and login
+- Optional Technikum Wien LDAP login fallback
+- JWT-based authentication for protected message endpoints
+- Role-based message visibility with `STUDENT`, `EMPLOYEE`, and `ALL`
+- Tags and user subscriptions
+- Personalized news feed
+- Read/unread message filtering with hover-based read status
+- Notification bell for unread messages
+- Message search with OpenThesaurus synonym expansion
+- Server-Sent Events for live feed updates
+- Optional AI-generated message summaries using Ollama and `llama3`
+- Swagger API documentation
 
-- Clean separation of concerns (Frontend ↔ Backend ↔ Database)
-- RESTful API design and consumption
-- Modular frontend architecture using Vue.js
-- Containerized database setup using Docker
-- API documentation using Swagger (OpenAPI)
-- Environment-based configuration (no hardcoded URLs)
+## Work in Progress
 
-The goal is to keep the system simple and understandable, while still reflecting real-world application structure.
+- Publish Agent with AI-supported writing suggestions for new messages
+- Auto-tagging suggestions while creating messages
+- Message Agent that shows semantically similar messages at the end of each post
 
+## Tech Stack
 
-## System Architecture 
+| Part | Tech |
+|---|---|
+| Frontend | Vue 3, Vue Router, Axios, Vue CLI |
+| Backend | Node.js, Express, PostgreSQL client, JWT, bcrypt, ldapjs |
+| Database | PostgreSQL 16 |
+| Tests | Jest |
+| Containers | Docker, Docker Compose, nginx |
 
-NewsCenter consists of three main components:
+## Requirements
 
-- Frontend  
-  Vue.js application responsible for displaying messages and tags and interacting with the backend API.
+Install these first:
 
-- Backend  
-  Node.js / Express service that implements business logic, database access, and a publish–subscribe mechanism.
+- Git
+- Docker Desktop with Docker Compose
+- Node.js 18 or newer with npm, only needed for local development without containers
 
-- Database  
-  PostgreSQL database running in Docker for persistent storage of users, messages, and tags.
-
-All communication from the frontend goes through the backend API.  
-The frontend never communicates directly with the database.
-
-
-## Technology Stack 
-
-- Frontend: Vue.js (Vue CLI)
-- Backend: Node.js + Express
-- Database: PostgreSQL
-- Containerization: Docker + Docker Compose
-- API Documentation: Swagger (OpenAPI)
-
-
-## Development Setup 
-
-### Prerequisites
-- Node.js + npm
-- Docker + Docker Compose
+Before running any `docker` command, start Docker Desktop and wait until it says Docker is running.
 
 Optional:
+
+- Ollama, only needed for AI message summaries
+- A PostgreSQL client for optional manual database inspection
+
+You do not need to install Vue CLI globally. The frontend uses the local Vue CLI dependency from `frontend/package.json`.
+
+## Quick Start
+
+Start Docker Desktop first.
+
+Clone the repository:
+
 ```bash
-npm install -g @vue/cli
+git clone https://github.com/andizj/20_NewsCenter.git
+cd 20_NewsCenter
 ```
 
-### Running the Application Fully Containerized (only for retake)
+If you already cloned the project, update it with:
 
-The entire application (Frontend, Backend, and Database) is fully containerized using Docker. You do not need to install Node.js or run `npm install` manually. You can start the complete stack with a single command!
+```bash
+git pull
+```
 
-#### 1) Start the full stack
-
-From the project root directory, run:
+Then build and start everything in the background:
 
 ```bash
 docker compose up --build -d
 ```
 
-### Running the Application 
+This builds and starts:
 
-#### 1) Start the Database
+- PostgreSQL database
+- Express backend
+- Vue frontend served by nginx
 
-From the project root:
+Useful commands:
 
-docker compose up -d
-
-Adminer (Database UI):
 ```bash
-    URL: http://localhost:8080
-    System: PostgreSQL
-    Server: db
-    User: newscenter
-    Password: nc_secret
-    Database: newscenter
+docker compose ps
+docker compose logs -f
+docker compose down
 ```
-#### 2) Start the Backend
+
+Default URLs from the current `docker-compose.yml`:
+
+| Service | URL |
+|---|---|
+| Frontend | `http://localhost:8081` |
+| Backend | `http://localhost:3000` |
+| Swagger API docs | `http://localhost:3000/api-docs` |
+| Database check | `http://localhost:3000/db-check` |
+
+If a port is already used on your machine, change the port mapping in `docker-compose.yml`.
+
+## Alternative Development Mode
+
+Use this alternative mode only when running the frontend and backend locally with npm hot reload. PostgreSQL continues to run in Docker.
+
+### 1. Start Only PostgreSQL In Docker
+
 ```bash
-cd backend
-npm install
-npm run dev
+docker compose up -d db
 ```
-Backend API:
-```bash
-http://localhost:3000
-```
-Swagger API Documentation:
-```bash
-http://localhost:3000/api-docs
-```
-#### 3) Start the Frontend
-```bash
-cd newscenter-frontend
-npm install
-npm run serve
-```
-Frontend URL (port may vary):
 
-http://localhost:8081
+### 2. Create Backend Environment File
 
-#### Environment Configuration 
+Create `backend/.env`:
 
-Frontend
-
-newscenter-frontend/.env
-
-VUE_APP_API_URL=http://localhost:3000
-
-Backend
-```bash
-backend/.env
-
+```env
 PORT=3000
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=newscenter
 DB_PASSWORD=nc_secret
 DB_NAME=newscenter
-JWT_SECRET=super_secret_jwt_key_123
+JWT_SECRET=replace_this_with_a_long_random_secret
+JWT_EXPIRES_IN=2h
+BCRYPT_SALT_ROUNDS=10
 LDAP_URL=ldap://ldap.technikum-wien.at
 LDAP_BASE_DN=ou=people,dc=technikum-wien,dc=at
-
 ```
-    Note: For this university project, .env files are committed for simplicity and ease of setup.
-    In production environments, sensitive configuration should never be committed.
 
-## API Overview 
+Use `DB_HOST=localhost` when the backend runs locally. Docker Compose uses `DB_HOST=db` internally for the backend container.
 
-The backend exposes REST endpoints consumed by the frontend. Key endpoints include:
-Auth: `POST /users/login` (Hybrid: Lokal + LDAP), `POST /users` (Register)
- Messages: `GET /messages` (Feed), `GET /messages/search?q=...` (Thesaurus Suche), `POST /messages`
- Tags: `GET /tags`, `POST /tags` 
- Subscriptions: `POST /users/:id/subscriptions`, `DELETE /users/:id/subscriptions/:tagId`
+### 3. Run Backend Locally With npm
 
-(Note: Server-Sent Events were replaced by a robust client-side polling mechanism for this iteration.)
+```bash
+cd backend
+npm ci
+npm run dev
+```
 
-All endpoints are documented via Swagger.
+### 4. Run Frontend Locally With npm
 
-## Current Features (Iteration 1 & 2)
-Epic 1: LDAP & Authentifizierung
+The frontend already has `frontend/.env`:
 
-- Hybrid-Login: Unterstützt sicheren lokalen Login (BCrypt) sowie einen Fallback auf das Active Directory der FH Technikum Wien.
-- Verschlüsselte LDAP-Verbindung via StartTLS.
-- Just-in-Time Provisioning: Automatische Account-Erstellung beim ersten LDAP-Login.
-- Automatisches Rollen-Mapping: Zuweisung von Student / Employee via Regex-Prüfung der FH-Kennung.
+```env
+VUE_APP_API_URL=http://localhost:3000
+```
 
-Epic 2: Intelligente Suche (Thesaurus)
+Then run:
 
-- Semantic Search: Anbindung der OpenThesaurus REST-API.
-- Echtzeit-Synonym-Erweiterung bei Suchanfragen (z. B. "Feuer" findet auch "Brandverordnung").
-- Dynamisch erweiterte SQL-Abfragen für deutlich höhere Trefferquoten.
-- Frontend, UX & Core-Features
-- Tag-Based Filtering & Subscriptions: Personalisierter News-Feed basierend auf abonnierten Themen und der eigenen LDAP-Rolle.
-- Modernes UI: Optimiertes Feed-Layout ("Wer spricht?" vor "Was wird gesagt?") inklusive visueller Tag-Hashtags.
-- Real-Time Updates: Das Frontend pollt regelmäßig nach neuen Nachrichten.
-- Content Creation: Create messages and new tags directly from the UI.
+```bash
+cd frontend
+npm ci
+npm run serve
+```
 
-## Project Status
-The project currently provides a fully working end-to-end prototype:
-Frontend ↔ Backend ↔ Database communication is fully implemented.
-Authentication and security basics (password hashing & LDAP integration) are implemented.
-Tagging logic (Many-to-Many relations & Thesaurus search) is fully functional.
+Vue CLI prints the local frontend URL in the terminal.
 
-## Testing
+## Optional Development Checks
 
-The backend includes unit tests using [Jest](https://jestjs.io/). Tests run without a database or any external services — repositories and external APIs are mocked.
+These commands are not required to run the project with Docker Compose. Use them only when developing or checking changes locally.
 
-### What is tested
-
-| File | Covered functions |
-|---|---|
-| `tests/authService.test.js` | `hashPassword`, `comparePassword`, `generateToken` |
-| `tests/messageService.test.js` | `createMessage` (validation, role fallback), `getMessageById` (found / 404) |
-
-Note: LDAP authentication is intentionally excluded from unit tests as it depends on an external server.
-
-### Running the tests
+Run backend tests locally:
 
 ```bash
 cd backend
 npm test
 ```
 
-Expected output:
+Build the frontend locally, only if you want to check the frontend build outside Docker:
 
+```bash
+cd frontend
+npm run build
 ```
-Test Suites: 2 passed, 2 total
-Tests:       9 passed, 9 total
+
+Lint the frontend locally:
+
+```bash
+cd frontend
+npm run lint
 ```
 
-## Future Improvements
-True Real-Time: Replace polling with WebSockets for instant updates.
-Admin Dashboard: UI to delete messages or manage users.
-File Uploads: Allow images or attachments in messages.
+Run backend locally without nodemon:
 
-## About This Project
-This project was developed as part of a university course (Innovation Lab).
-Some implementation decisions prioritize clarity and ease of evaluation over production-grade security practices.
+```bash
+cd backend
+npm start
+```
+
+## Database
+
+Database settings from `docker-compose.yml`:
+
+```text
+Database: newscenter
+User: newscenter
+Password: nc_secret
+Container host: db
+Local host: localhost
+Port: 5432
+```
+
+Initialization files:
+
+- `db/init/01_schema.sql`: creates tables and indexes
+- `db/init/02_seed.sql`: inserts demo users, tags, messages, and subscriptions
+
+Main tables:
+
+- `users`
+- `tags`
+- `messages`
+- `message_tags`
+- `subscriptions`
+
+Reset the database completely:
+
+```bash
+docker compose down -v
+docker compose up --build -d
+```
+
+Run these commands from the project root. The `-v` removes the database volume, so the schema and seed scripts run again.
+
+## API Overview
+
+Swagger has the detailed API docs:
+
+```text
+http://localhost:3000/api-docs
+```
+
+Important endpoints:
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/users` | Register user |
+| `POST` | `/users/login` | Login with local account or LDAP fallback |
+| `GET` | `/tags` | List tags |
+| `POST` | `/tags` | Create tag |
+| `GET` | `/users/:id/subscriptions` | List user subscriptions |
+| `POST` | `/users/:id/subscriptions` | Subscribe to a tag |
+| `DELETE` | `/users/:id/subscriptions/:tagId` | Unsubscribe from a tag |
+| `GET` | `/messages` | Get personalized feed |
+| `POST` | `/messages` | Create message |
+| `GET` | `/messages/search?q=...` | Search messages |
+| `POST` | `/messages/:id/tags` | Assign tag to message |
+| `POST` | `/messages/:id/summarize` | Generate AI summary |
+| `GET` | `/subscribe?token=...` | SSE live feed |
+
+Protected message endpoints require:
+
+```http
+Authorization: Bearer <jwt-token>
+```
+
+## Optional Ollama Setup
+
+Message summaries use Ollama with the `llama3` model. The backend currently expects Ollama at:
+
+```text
+http://host.docker.internal:11434
+```
+
+Install Ollama, then pull the model:
+
+```bash
+ollama pull llama3
+```
+
+All non-AI features work without Ollama. Only `/messages/:id/summarize` will fail if Ollama is not running.
+
+## Troubleshooting
+
+If all Docker commands fail, start Docker Desktop first and wait until the Docker engine is running. A common Windows error is that `dockerDesktopLinuxEngine` or the Docker daemon cannot be reached.
+
+Check Docker with:
+
+```bash
+docker info
+```
+
+If the frontend cannot call the backend, check `frontend/.env` and restart the frontend dev server.
+
+If the backend cannot connect to the database, check whether you are using the correct `DB_HOST`: `localhost` for local npm backend, `db` for Docker backend.
+
+If old database data keeps showing up, reset the Docker volume with `docker compose down -v`.
+
+If login fails locally, make sure `JWT_SECRET` is set in `backend/.env`.
