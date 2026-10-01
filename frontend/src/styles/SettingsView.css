@@ -68,6 +68,8 @@
               padding: 9px 12px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.04);
               border: 1px solid var(--color-border); }
 .tag-name   { font-size: 13px; font-weight: 500; color: var(--color-accent); }
+.tag-info   { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.tag-subs   { font-size: 11px; color: var(--color-text-muted); white-space: nowrap; }
 .tag-empty  { font-size: 12px; color: var(--color-text-dim); padding: 10px 0; }
 
 .remove-btn {
@@ -148,6 +150,32 @@
 
 /* Message agent 2-col grid on wider screens */
 .message-agent-grid { display: flex; flex-direction: column; }
+
+/* Status line (replaces coming-soon for finished features) */
+.agent-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.status-badge {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-dim);
+  border: 1px solid var(--color-border-medium);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.status-badge.active {
+  background: rgba(80, 220, 140, 0.12);
+  border-color: rgba(80, 220, 140, 0.35);
+  color: #50dc8c;
+}
 
 /* Coming-soon banner */
 .coming-soon {
