@@ -101,9 +101,44 @@ const swaggerDocument = {
         },
       },
     },
+    "/messages/tag-suggestions": {
+      post: {
+        summary: "Tag-Vorschläge für einen Nachrichtenentwurf (Publish Agent)",
+        description:
+          "Gibt Tag-Vorschläge passend zu Titel/Body zurück. Bestehende Tags kommen zuerst (inkl. `subscriberCount`), nur wenn kein bestehender Tag passt werden neue Tags (`type: \"new\"`) vorgeschlagen. Authentifizierung wie bei den geschützten Message-Endpunkten erforderlich.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  body: { type: "string" },
+                },
+              },
+              example: {
+                title: "Fire drill tomorrow",
+                body: "There will be a fire drill tomorrow at 10:00.",
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description:
+              "Liste der Vorschläge ({ type, id?, name, subscriberCount, reason })",
+          },
+          400: { description: "Titel und Body fehlen" },
+          401: { description: "Nicht authentifiziert" },
+        },
+      },
+    },
     "/tags": {
       get: {
         summary: "Alle Tags auflisten",
+        description:
+          "Jeder Tag enthält zusätzlich `subscriberCount` (aktuelle Anzahl der Abonnenten aus der subscriptions-Tabelle).",
         responses: {
           200: { description: "Liste aller Tags" },
         },
