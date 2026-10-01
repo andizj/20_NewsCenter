@@ -28,7 +28,12 @@
         :class="{ active: selected === t.name }"
         @click="$emit('select', t.name)"
       >
-        <span class="tag-name"># {{ t.name }}</span>
+        <span class="tag-main">
+          <span class="tag-name"># {{ t.name }}</span>
+          <span v-if="subscriberCountFor(t) !== null" class="tag-subs">
+            · {{ subscriberLabel(subscriberCountFor(t)) }}
+          </span>
+        </span>
         
         <button 
           class="star-btn"
@@ -79,7 +84,14 @@ export default {
   },
 
   data() {
-    return { newTagName: "" };
+    return { newTagName: "", countOverrides: {} };
+  },
+
+  watch: {
+    // Fresh tag data from the server → local count adjustments are obsolete.
+    tags() {
+      this.countOverrides = {};
+    },
   },
 
   async mounted() {
@@ -88,15 +100,36 @@ export default {
   },
 
   methods: {
+    subscriberCountFor(tag) {
+      if (Object.prototype.hasOwnProperty.call(this.countOverrides, tag.id)) {
+        return this.countOverrides[tag.id];
+      }
+      return typeof tag.subscriberCount === "number" ? tag.subscriberCount : null;
+    },
+
+    subscriberLabel(count) {
+      const value = Number(count) || 0;
+      return `${value} Sub${value === 1 ? "" : "s"}`;
+    },
+
+    adjustCount(tag, delta) {
+      const current = this.subscriberCountFor(tag);
+      if (current === null) return;
+      this.countOverrides = {
+        ...this.countOverrides,
+        [tag.id]: Math.max(0, current + delta),
+      };
+    },
+
     async toggleSubscription(tag) {
       const id = tag.id;
       if (this.isSubscribed(id)) {
         this.subscriptions = this.subscriptions.filter(s => s.id !== id);
-        try { await unsubscribe(id); }
+        try { await unsubscribe(id); this.adjustCount(tag, -1); }
         catch { await this.load(); }
       } else {
         this.subscriptions = [...this.subscriptions, tag];
-        try { await subscribe(id); }
+        try { await subscribe(id); this.adjustCount(tag, 1); }
         catch { this.subscriptions = this.subscriptions.filter(s => s.id !== id); }
       }
       this.$emit("subscriptions-changed", this.subscriptions);
