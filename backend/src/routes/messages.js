@@ -1,5 +1,6 @@
 const express = require("express");
 const messageService = require("../services/messageService");
+const tagSuggestionService = require("../services/tagSuggestionService");
 const auth = require("../middleware/auth");
 const { handleError } = require("../utils/errorHandler");
 
@@ -16,6 +17,24 @@ module.exports = (broadcaster) => {
         { authorId: req.user.id, ...req.body }
       );
       return res.status(201).json(message);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  });
+
+  /**
+   * POST /messages/tag-suggestions – Publish agent: suggest tags for a
+   * message draft. Existing tags (incl. subscriber counts) come first,
+   * new tag candidates are only returned when no existing tag fits.
+   * Declared before /:id routes so "tag-suggestions" is never treated as a UUID.
+   */
+  router.post("/tag-suggestions", auth, async (req, res) => {
+    try {
+      const suggestions = await tagSuggestionService.suggestTags({
+        title: req.body?.title,
+        body: req.body?.body,
+      });
+      return res.json({ suggestions });
     } catch (err) {
       return handleError(res, err);
     }
