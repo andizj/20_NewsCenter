@@ -1,4 +1,5 @@
-const BASE_URL = process.env.VUE_APP_API_URL || "http://localhost:3000";
+// /subscribe liegt bewusst außerhalb des /api/v1-Prefixes (SSE + EventSource-Einschränkungen)
+const SSE_BASE_URL = process.env.VUE_APP_API_URL || "http://localhost:3000";
 
 // Singleton – one SSE connection for the whole app lifetime
 let source = null;
@@ -17,7 +18,7 @@ function connect() {
     return;
   }
 
-  const url = `${BASE_URL}/subscribe?token=${encodeURIComponent(token)}`;
+  const url = `${SSE_BASE_URL}/subscribe?token=${encodeURIComponent(token)}`;
 
   source = new EventSource(url);
 
