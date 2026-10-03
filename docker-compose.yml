@@ -31,6 +31,8 @@ services:
       - LDAP_URL=ldap://ldap.technikum-wien.at
       - LDAP_BASE_DN=ou=people,dc=technikum-wien,dc=at
       - OLLAMA_MODEL=llama3.2:3b
+      # Erlaubte CORS-Origins (kommasepariert). Im Prod durch echte Domain ersetzen.
+      - ALLOWED_ORIGIN=http://localhost:8081
     volumes:
       - ./backend/src:/app/src # Live-Reload: Änderungen werden sofort übernommen
     command: npm run dev # nodemon statt node

@@ -6,6 +6,7 @@ const { pool } = require("./db");
 
 const app = express();
 const port = process.env.PORT || 3000;
+const API_PREFIX = "/api/v1";
 
 let clients = [];
 
@@ -35,11 +36,11 @@ const swaggerDocument = {
   },
   servers: [
     {
-      url: "http://localhost:" + port,
+      url: "http://localhost:" + port + API_PREFIX,
     },
   ],
   paths: {
-    "/subscribe": {
+    "/subscribe": {  // bleibt außerhalb des Prefixes – SSE-Standard
       get: {
         summary: "Server-Sent-Events Feed abonnieren",
         description:
@@ -228,16 +229,38 @@ const swaggerDocument = {
   },
 };
 
-app.use(cors());
+// CORS – Origin über ENV konfigurierbar; mehrere Origins als kommaseparierte Liste möglich
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || "*")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: allowedOrigins.length === 1 && allowedOrigins[0] === "*"
+      ? "*"
+      : (origin, cb) => {
+          // Requests ohne Origin (z.B. curl, Postman) immer erlauben
+          if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+          cb(new Error(`CORS: Origin '${origin}' not allowed`));
+        },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Swagger UI unter /api-docs
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.use("/users", usersRouter);
-app.use("/tags", tagsRouter);
-app.use("/messages", messagesRouter);
+// Versionierte API-Routen
+app.use(`${API_PREFIX}/users`, usersRouter);
+app.use(`${API_PREFIX}/tags`, tagsRouter);
+app.use(`${API_PREFIX}/messages`, messagesRouter);
 
+// SSE bleibt absichtlich außerhalb des /api/v1-Prefixes,
+// da EventSource im Browser keine custom Headers unterstützt.
 app.get("/subscribe", (req, res) => {
   const { token } = req.query;
 
@@ -253,11 +276,12 @@ app.get("/subscribe", (req, res) => {
     return res.status(401).json({ error: "Invalid token" });
   }
 
+  // CORS wird bereits durch die globale cors()-Middleware gesetzt;
+  // kein manueller Access-Control-Allow-Origin-Header mehr nötig.
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     Connection: "keep-alive",
     "Cache-Control": "no-cache",
-    "Access-Control-Allow-Origin": "*",
   });
 
   const clientId = Date.now();
@@ -282,7 +306,7 @@ app.get("/subscribe", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.json({ message: "NewsCenter backend is running" });
+  res.json({ message: "NewsCenter backend is running", apiPrefix: API_PREFIX });
 });
 
 app.get("/db-check", async (req, res) => {
