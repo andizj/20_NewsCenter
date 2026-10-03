@@ -20,6 +20,7 @@
           </div>
         </div>
         <div class="role-display">
+          <div class="user-display-name">{{ displayName }}</div>
           <span class="role-badge" :class="roleBadgeClass">{{ userRole }}</span>
           <span class="role-hint">Vergeben durch LDAP · Nur zur Anzeige</span>
         </div>
@@ -203,10 +204,16 @@ export default {
   data() {
     const userRaw = sessionStorage.getItem('user');
     let userRole = 'UNBEKANNT';
-    try { userRole = JSON.parse(userRaw)?.role ?? 'UNBEKANNT'; } catch (e) { /* invalid JSON */ }
+    let displayName = 'Unbekannt';
+    try {
+      const parsed = JSON.parse(userRaw);
+      userRole = parsed?.role ?? 'UNBEKANNT';
+      displayName = parsed?.displayName || parsed?.email || 'Unbekannt';
+    } catch (e) { /* invalid JSON */ }
 
     return {
       userRole,
+      displayName,
       allTags: [],
       subError: null,
       selectedNewTag: '',

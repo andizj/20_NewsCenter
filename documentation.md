@@ -96,6 +96,11 @@ setupSwagger(app, { port, apiPrefix: API_PREFIX });
 | `swagger.js` | 55 Zeilen (veraltet) | **~360 Zeilen** (vollständig) |
 
 ---
+## 5. AppHeader und Settings änderung 
+
+**Problem:** Man konnte den Benutzernamen nicht sehen. Man wusste nicht welche Account eingeloggt ist.
+
+**Lösung:** AppHeader und SettingsView wurden ergänzt.
 
 ## Geänderte Dateien
 
@@ -107,4 +112,6 @@ setupSwagger(app, { port, apiPrefix: API_PREFIX });
 | `docker-compose.yml` | `ALLOWED_ORIGIN` als ENV-Variable |
 | `frontend/src/services/api.js` | `baseURL` um `/api/v1` erweitert |
 | `frontend/src/services/sseService.js` | Kommentar zur SSE-Ausnahme ergänzt |
+| `frontend/src/components/AppHeader.vue` | Benutzernamen und Login-Info ergänzt |
+| `frontend/src/views/SettingsView.vue` | Benutzernamen und Login-Info ergänzt |
 | `documentation.md` | Dieses Dokument |

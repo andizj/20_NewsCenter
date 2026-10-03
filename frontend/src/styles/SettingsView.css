@@ -36,8 +36,14 @@
 /* ── Role badge ── */
 .role-display {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  gap: 8px;
+}
+.user-display-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: 0.1px;
 }
 .role-badge {
   display: inline-block;
@@ -47,6 +53,7 @@
   font-weight: 700;
   letter-spacing: 0.5px;
   border: 1px solid transparent;
+  align-self: flex-start;
 }
 .role-student  { background: rgba(120,160,255,0.12); border-color: rgba(120,160,255,0.35); color: var(--color-accent); }
 .role-employee { background: rgba(80,220,140,0.12);  border-color: rgba(80,220,140,0.35);  color: #50dc8c; }
