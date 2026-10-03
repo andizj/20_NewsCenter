@@ -13,7 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d 
+      - ./db/init:/docker-entrypoint-initdb.d
 
   backend:
     build: ./backend
@@ -30,9 +30,10 @@ services:
       - JWT_SECRET=super_secret_jwt_key_123
       - LDAP_URL=ldap://ldap.technikum-wien.at
       - LDAP_BASE_DN=ou=people,dc=technikum-wien,dc=at
+      - OLLAMA_MODEL=llama3.2:3b
     volumes:
-      - ./backend/src:/app/src  # Live-Reload: Änderungen werden sofort übernommen
-    command: npm run dev         # nodemon statt node
+      - ./backend/src:/app/src # Live-Reload: Änderungen werden sofort übernommen
+    command: npm run dev # nodemon statt node
     depends_on:
       - db
 

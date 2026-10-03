@@ -29,8 +29,15 @@ async function findAll() {
  */
 async function findById(id) {
   const result = await pool.query(
-    `${TAG_WITH_COUNT_SQL}
-     WHERE t.id = $1::uuid`,
+    `SELECT t.id,
+            t.name,
+            t.description,
+            t.created_at AS "createdAt",
+            COUNT(s.user_id)::int AS "subscriberCount"
+     FROM tags t
+     LEFT JOIN subscriptions s ON s.tag_id = t.id
+     WHERE t.id = $1::uuid
+     GROUP BY t.id`,
     [id]
   );
   return result.rows[0] || null;
