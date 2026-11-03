@@ -23,6 +23,7 @@ async function findById(id) {
     `SELECT id,
             display_name AS "displayName",
             email,
+            role,
             created_at AS "createdAt"
      FROM users
      WHERE id = $1::uuid`,
@@ -48,20 +49,84 @@ async function findAll() {
 
 /**
  * Inserts a new user and returns the created record.
- * @param {{ displayName: string, email: string, passwordHash: string, role: string }} param0
+ * Profile fields are optional and default to NULL (local accounts, employees,
+ * or callers that do not parse a Kennung yet) – existing callers stay unchanged.
+ * @param {{ displayName: string, email: string, passwordHash: string, role: string,
+ *           studentId?: string|null, studyProgram?: string|null,
+ *           degree?: string|null, studyStartYear?: number|null }} param0
  */
-async function create({ displayName, email, passwordHash, role }) {
+async function create({
+  displayName,
+  email,
+  passwordHash,
+  role,
+  studentId = null,
+  studyProgram = null,
+  degree = null,
+  studyStartYear = null,
+}) {
   const result = await pool.query(
-    `INSERT INTO users (display_name, email, password_hash, role)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (display_name, email, password_hash, role,
+                        student_id, study_program, degree, study_start_year)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id,
                display_name AS "displayName",
                email,
                role,
                created_at AS "createdAt"`,
-    [displayName, email, passwordHash, role]
+    [displayName, email, passwordHash, role, studentId, studyProgram, degree, studyStartYear]
   );
   return result.rows[0];
+}
+
+/**
+ * Stores the derived profile of a user (LDAP profiling) as a whole.
+ * Only the profile columns are written – email, display_name, password_hash,
+ * role and created_at stay untouched. The current semester is NOT stored
+ * (it is computed dynamically).
+ * @param {string} userId - UUID
+ * @param {{ studentId?: string|null, studyProgram?: string|null,
+ *           degree?: string|null, studyStartYear?: number|null }} profile
+ * @returns {Promise<object|null>} the stored profile row, null if user not found
+ */
+async function updateProfile(
+  userId,
+  { studentId = null, studyProgram = null, degree = null, studyStartYear = null }
+) {
+  const result = await pool.query(
+    `UPDATE users
+        SET student_id       = $2,
+            study_program    = $3,
+            degree           = $4,
+            study_start_year = $5
+      WHERE id = $1::uuid
+      RETURNING id,
+                student_id       AS "studentId",
+                study_program    AS "studyProgram",
+                degree,
+                study_start_year AS "studyStartYear"`,
+    [userId, studentId, studyProgram, degree, studyStartYear]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Reads only the profile fields of a user.
+ * Existing read functions (findById/findAll/findByEmail) stay unchanged.
+ * @param {string} id - UUID
+ * @returns {Promise<object|null>} profile row or null if user not found
+ */
+async function findProfileById(id) {
+  const result = await pool.query(
+    `SELECT student_id       AS "studentId",
+            study_program    AS "studyProgram",
+            degree,
+            study_start_year AS "studyStartYear"
+     FROM users
+     WHERE id = $1::uuid`,
+    [id]
+  );
+  return result.rows[0] || null;
 }
 
 /**
@@ -118,6 +183,8 @@ module.exports = {
   findById,
   findAll,
   create,
+  updateProfile,
+  findProfileById,
   findSubscriptions,
   addSubscription,
   removeSubscription,
