@@ -212,6 +212,7 @@ import { useSubscriptions } from '../composables/useSubscriptions';
 import { getTags } from '../services/tagsService';
 import { getMyProfile } from '../services/profileService';
 import { isAutoTaggingEnabled, setAutoTaggingEnabled } from '../services/agentSettings';
+import { userStore } from '../store/user';
 
 const SUMMARIZE_MESSAGES_STORAGE_KEY = 'newscenter_summarize_messages';
 
@@ -231,21 +232,10 @@ export default {
   },
 
   data() {
-    const userRaw = sessionStorage.getItem('user');
-    let userRole = 'UNBEKANNT';
-    let displayName = 'Unbekannt';
-    try {
-      const parsed = JSON.parse(userRaw);
-      userRole = parsed?.role ?? 'UNBEKANNT';
-      displayName = parsed?.displayName || parsed?.email || 'Unbekannt';
-    } catch (e) { /* invalid JSON */ }
-
     return {
-      userRole,
       profile: null,
       profileLoading: true,
       profileError: null,
-      displayName,
       allTags: [],
       subError: null,
       selectedNewTag: '',
@@ -260,6 +250,12 @@ export default {
   },
 
   computed: {
+    userRole() {
+      return userStore.user?.role ?? 'UNBEKANNT';
+    },
+    displayName() {
+      return userStore.user?.displayName || 'Nicht verfügbar';
+    },
     roleBadgeClass() {
       const map = { STUDENT: 'role-student', EMPLOYEE: 'role-employee', ADMIN: 'role-admin' };
       return map[this.userRole] ?? 'role-default';
@@ -297,6 +293,7 @@ export default {
       this.profileError = null;
       try {
         this.profile = await getMyProfile();
+        userStore.updateFromProfile(this.profile);
       } catch (err) {
         this.profile = null;
         this.profileError =

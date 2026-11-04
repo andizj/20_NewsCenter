@@ -79,6 +79,25 @@ async function create({
   return result.rows[0];
 }
 
+/** Update a verified LDAP name, preserving account identity and all study fields.
+ * The existing LDAP marker also protects local accounts at the SQL boundary.
+ */
+async function updateLdapDisplayName(userId, displayName) {
+  if (typeof displayName !== "string" || !displayName.trim()) {
+    throw { status: 400, message: "A verified display name is required" };
+  }
+  const result = await pool.query(
+    `UPDATE users
+        SET display_name = $2
+      WHERE id = $1::uuid
+        AND POSITION('INVALID_LOCAL_LOGIN' IN password_hash) > 0
+      RETURNING id, display_name AS "displayName", email, role,
+                created_at AS "createdAt"`,
+    [userId, displayName.trim()]
+  );
+  return result.rows[0] || null;
+}
+
 /**
  * Stores the derived profile of a user (LDAP profiling) as a whole.
  * Only the profile columns are written – email, display_name, password_hash,
@@ -187,6 +206,7 @@ module.exports = {
   findById,
   findAll,
   create,
+  updateLdapDisplayName,
   updateProfile,
   findProfileById,
   findSubscriptions,

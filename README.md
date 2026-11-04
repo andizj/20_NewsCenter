@@ -156,6 +156,7 @@ Epic 1: LDAP & Authentifizierung
 - Verschlüsselte LDAP-Verbindung via StartTLS.
 - Just-in-Time Provisioning: Automatische Account-Erstellung beim ersten LDAP-Login.
 - Automatisches Rollen-Mapping: Zuweisung von Student / Employee via Regex-Prüfung der FH-Kennung.
+- LDAP-Anzeigename: Nach dem Bind werden `givenName` und `sn` auf derselben Verbindung aus dem verifizierten eigenen Eintrag gelesen. Der vollständige Name wird für neue LDAP-Konten gespeichert und bei Bestandskonten nachgeführt.
 
 Epic 2: Intelligente Suche (Thesaurus)
 
@@ -208,8 +209,12 @@ The backend includes unit tests using [Jest](https://jestjs.io/). Tests run with
 | `tests/userRepository.profile.test.js` | profile columns in `create`/`updateProfile`/`findProfileById`, migration 001 (idempotent, additive) |
 | `tests/userService.loginProfile.test.js` | profile derivation on LDAP login (new/existing users), local accounts untouched, role check & JWT unchanged |
 | `tests/userProfileApi.test.js` | `GET /api/v1/users/me` (profile fields, missing data, all 401/404 cases, no password hashes) |
+| `tests/authService.ldapProfile.test.js` | same-connection LDAP read, DN/uid identity check, name attributes, read/auth failures, timeouts and connection cleanup |
+| `tests/ldapLoginApi.test.js` | login → name persistence → profile API, existing/new LDAP accounts, local accounts, unchanged JWT claims and lifetime |
+| `tests/tagSuggestionService.test.js` | existing/new suggestions, subscriber counts, thesaurus fallback |
+| `tests/sprintIntegration.test.js` | combined versioned/legacy API, profile, counts, suggestions, CORS and Swagger |
 
-Note: LDAP authentication is intentionally excluded from unit tests as it depends on an external server.
+LDAP transport is mocked in automated tests; the real ldapjs DN and result-entry types are exercised. No real LDAP credentials are needed. A separate authorized live diagnostic confirmed the available name attributes.
 
 ### Running the tests
 
@@ -221,9 +226,13 @@ npm test
 Expected output:
 
 ```
-Test Suites: 7 passed, 7 total
-Tests:       81 passed, 81 total
+Test Suites: 11 passed, 11 total
+Tests:       170 passed, 170 total
 ```
+
+Frontend session/name and render regressions can be run with `npm test` in
+`frontend` (Node.js test runner; no additional test dependencies). Run
+`npm run lint -- --no-fix` and `npm run build` for lint/build checks.
 
 ## Future Improvements
 True Real-Time: Replace polling with WebSockets for instant updates.

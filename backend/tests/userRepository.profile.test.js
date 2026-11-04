@@ -3,7 +3,7 @@ jest.mock('../src/db', () => ({ pool: { query: jest.fn() } }));
 const fs = require('fs');
 const path = require('path');
 const { pool } = require('../src/db');
-const { create, updateProfile, findProfileById } = require('../src/repositories/userRepository');
+const { create, updateLdapDisplayName, updateProfile, findProfileById } = require('../src/repositories/userRepository');
 
 const PROFILE_FIELDS = ['student_id', 'study_program', 'degree', 'study_start_year'];
 const MIGRATION_PATH = path.join(__dirname, '..', '..', 'db', 'migrations', '001_user_profile_fields.sql');
@@ -79,6 +79,33 @@ describe('userRepository – Profilfelder', () => {
       expect(sql).toMatch(/RETURNING id,/);
       expect(sql).toContain('display_name AS "displayName"');
       expect(sql).toContain('created_at AS "createdAt"');
+    });
+  });
+
+  describe('updateLdapDisplayName', () => {
+    test('aktualisiert nur den Namen eines LDAP-Kontos und liefert die frische Benutzerzeile', async () => {
+      const row = { id: 'u1', displayName: 'LDAP Namens-Fixture', email: 'ldap@example.test', role: 'STUDENT' };
+      pool.query.mockResolvedValue({ rows: [row] });
+      expect(await updateLdapDisplayName('u1', ' LDAP Namens-Fixture ')).toEqual(row);
+      const [sql, params] = lastQuery();
+      expect(sql).toContain('SET display_name = $2');
+      expect(sql).toContain("POSITION('INVALID_LOCAL_LOGIN' IN password_hash) > 0");
+      expect(sql).toContain('display_name AS "displayName"');
+      expect(params).toEqual(['u1', 'LDAP Namens-Fixture']);
+      const assignments = sql.match(/\bSET\b([\s\S]*?)\bWHERE\b/)[1];
+      ['id', 'email', 'role', 'password_hash', ...PROFILE_FIELDS].forEach(column => {
+        expect(assignments).not.toMatch(new RegExp(`\\b${column}\\s*=`));
+      });
+    });
+
+    test('liefert null für lokale oder nicht vorhandene Konten', async () => {
+      pool.query.mockResolvedValue({ rows: [] });
+      await expect(updateLdapDisplayName('u-local', 'LDAP Namens-Fixture')).resolves.toBeNull();
+    });
+
+    test.each(['', ' ', null, undefined])('überschreibt keinen Namen mit einem fehlenden Wert %#', async displayName => {
+      await expect(updateLdapDisplayName('u1', displayName)).rejects.toMatchObject({ status: 400 });
+      expect(pool.query).not.toHaveBeenCalled();
     });
   });
 

@@ -80,6 +80,7 @@
 
 <script>
 import api from '../services/api';
+import { userStore } from '../store/user';
 
 export default {
   name: 'LandingView',
@@ -133,7 +134,7 @@ export default {
         
         const { token, user } = response.data;
         sessionStorage.setItem('token', token);
-        sessionStorage.setItem('user', JSON.stringify(user));
+        userStore.setUser(user);
         
         // Nach erfolgreichem Login: Weiter zum Feed
         this.$router.push('/feed');

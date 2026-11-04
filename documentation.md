@@ -16,7 +16,47 @@ Publish-Agent-Einstellungen und die versionierte API mit dem LDAP-Studienprofil.
 - Die additive Migration `001_user_profile_fields.sql` wird für bestehende
   Datenbanken wie unten beschrieben angewendet; bestehende Volumes bleiben erhalten.
 
-## Integrationsprüfung vom 4. November 2026
+## LDAP-Anzeigenamen: verifizierte Profilquelle
+
+Der autorisierte Live-Diagnosecheck bestätigte `givenName` und `sn` als eindeutige
+Attribute des eigenen Eintrags (Bind, Read, DN-/uid-Prüfung und LDAP-Ergebniscode 0).
+
+- `authService.authenticateLDAP()` führt nach StartTLS und erfolgreichem Bind auf
+  derselben Verbindung einen Base-Scope-Read mit `(objectClass=*)`, Limit 1 und
+  deaktivierter Alias-Auflösung aus. Referrals werden nicht verfolgt.
+- `ldapProfileService` übernimmt die getestete DN-/uid-Identitätsprüfung. Eine
+  reine Schreibweisenabweichung von DN-Werten erfordert bekannte
+  Case-Ignore-Attribute und zusätzlich eine passende `uid`. Andere Einträge,
+  mehrdeutige Resultate und unvollständige LDAP-Ergebnisse liefern keinen Namen.
+- Nur eindeutige, nicht leere `givenName`- und `sn`-Werte werden mit einem
+  Leerzeichen verbunden. `cn`, E-Mail und Kennung sind keine Namens-Fallbacks.
+- Das interne Ergebnis enthält `authenticated`, `displayName` und einen festen
+  `profileReadStatus`. Ein fehlgeschlagener Read bleibt bei erfolgreichem Bind
+  eine Profilanreicherungsstörung und wird nicht zum Authentifizierungsfehler.
+- Ein vorhandener LDAP-Anzeigename wird bei Lesefehlern beibehalten. Neue
+  LDAP-Konten ohne verifizierten Namen speichern einen leeren String im
+  bestehenden `display_name`; die Oberfläche zeigt „Nicht verfügbar“.
+- `updateLdapDisplayName()` schreibt ausschließlich `display_name` und schützt
+  lokale Konten zusätzlich mit dem bestehenden LDAP-Marker in der SQL-Bedingung.
+  Die frische Benutzerzeile wird für die Login-Response verwendet. Bestandskonten
+  erhalten ihren Namen beim nächsten erfolgreichen LDAP-Login, ohne Neuanlage.
+- Kennung, Studienprofil, Rollenprüfung und JWT-Payload/-Laufzeit bleiben die
+  bisherigen Identifikations- und Berechtigungsgrundlagen. Es gibt keine neue
+  Datenbankspalte oder zusätzliche Migration für den Namen.
+- Unbind und notfalls erzwungener Disconnect schließen den Client auch bei
+  Bind-/Read-/Verbindungsfehlern und Timeouts. LDAP-Einträge, Namen und
+  Fehlermeldungen mit möglichen Zugangsdaten werden nicht protokolliert.
+- Der reaktive Frontend-Store `frontend/src/store/user.js` synchronisiert den
+  Namen aus Login und Profil mit Session, Header und Settings. Späte Antworten
+  eines anderen Kontos werden verworfen; Logout leert den Benutzerstand.
+
+Automatisierte Abdeckung: `authService.ldapProfile.test.js`,
+`userService.loginProfile.test.js`, `userRepository.profile.test.js`,
+`ldapLoginApi.test.js` und `frontend/tests/userProfile.test.js`. Die
+LDAP-/SQL-Transporte dieser Tests sind gemockt und erzeugen keine produktiven
+Benutzerkonten. Die vorhandenen Publish-Agent-/Subscriber-Count-Tests laufen mit.
+
+## Integrationsprüfung vom 4. November 2026 (Merge-Stand vor der Namenskorrektur)
 
 - Backend: **9 Suites / 108 Tests bestanden**, einschließlich 15 zusätzlicher
   Tests in `backend/tests/sprintIntegration.test.js`. Diese starten den echten
@@ -45,6 +85,10 @@ Publish-Agent-Einstellungen und die versionierte API mit dem LDAP-Studienprofil.
 ---
 
 # Sprint 3 – LDAP-Profiling & Identifikationslogik
+
+Die folgenden Sprint-3-Abschlussangaben beschreiben den ursprünglichen Stand.
+Die spätere Namensauflösung und ihre zusätzlichen Tests sind im Abschnitt
+„LDAP-Anzeigenamen: verifizierte Profilquelle“ oben dokumentiert.
 
 Dieses Dokument beschreibt die im Sprint 3 implementierten Funktionen, den
 dazugehörigen API-Endpunkt, die Datenbank-Migration, die durchgeführte

@@ -61,6 +61,7 @@
 
 <script>
 import { notificationStore } from '../store/notifications';
+import { userStore } from '../store/user';
 
 export default {
   name: "AppHeader",
@@ -72,13 +73,10 @@ export default {
   },
   computed: {
     displayName() {
-      try {
-        const user = JSON.parse(sessionStorage.getItem('user'));
-        return user?.displayName || user?.email || 'Unbekannt';
-      } catch { return 'Unbekannt'; }
+      return userStore.user?.displayName || 'Nicht verfügbar';
     },
     userInitial() {
-      return this.displayName.charAt(0).toUpperCase();
+      return userStore.user?.displayName?.charAt(0).toUpperCase() || '?';
     },
     newNotifications() {
       return notificationStore.newSubscribed;
@@ -105,7 +103,7 @@ export default {
       notificationStore.removeNotification(id);
     },
     logout() {
-      sessionStorage.removeItem("user");
+      userStore.clear();
       sessionStorage.removeItem("token"); 
       this.$router.push("/");
     }

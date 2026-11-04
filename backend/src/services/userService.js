@@ -138,7 +138,7 @@ async function login({ email: emailInput, password }) {
     if (valid) {
       isAuthenticated = true;
       authUser = dbUser;
-      console.log("[Auth] Local login:", authUser.email);
+      console.log("[Auth] Local login succeeded");
     }
   }
 
@@ -148,11 +148,19 @@ async function login({ email: emailInput, password }) {
       ? normalizedEmail.split("@")[0]
       : normalizedEmail;
 
+    let ldapIdentity;
     try {
-      await authService.authenticateLDAP(ldapUsername, password);
+      ldapIdentity = await authService.authenticateLDAP(ldapUsername, password);
       isAuthenticated = true;
-      console.log("[Auth] LDAP login:", ldapUsername);
+      console.log("[Auth] LDAP login succeeded");
+    } catch {
+      // LDAP errors may contain a DN or other personal data: never log them.
+      console.error("[Auth] LDAP authentication failed");
+    }
 
+    if (isAuthenticated) {
+      const displayName = ldapIdentity?.profileReadStatus === "ok" && typeof ldapIdentity.displayName === "string"
+        ? ldapIdentity.displayName.trim() : "";
       // Profil aus der Kennung ableiten (Studiengang, Abschluss, Studienbeginn).
       const profile = deriveProfile(ldapUsername);
 
@@ -160,7 +168,8 @@ async function login({ email: emailInput, password }) {
       if (!dbUser) {
         const role = STUDENT_ID_REGEX.test(ldapUsername) ? "STUDENT" : "EMPLOYEE";
         authUser = await userRepository.create({
-          displayName: ldapUsername,
+          // Empty is deliberately "not available", never a guessed name/kennung.
+          displayName,
           email: userEmail,
           passwordHash: LDAP_DUMMY_HASH,
           role,
@@ -170,12 +179,16 @@ async function login({ email: emailInput, password }) {
         authUser = dbUser;
         // Profildaten bei jedem LDAP-Login nachführen – ausschließlich für
         // LDAP-Konten, lokale Benutzerkonten bleiben unverändert.
-        if (!isLocalUser && profile) {
-          await userRepository.updateProfile(dbUser.id, profile);
+        if (!isLocalUser) {
+          if (profile) await userRepository.updateProfile(dbUser.id, profile);
+          if (displayName) {
+            const updated = await userRepository.updateLdapDisplayName(dbUser.id, displayName);
+            if (!updated) throw { status: 404, message: "User not found" };
+            // Use the fresh DB row; the pre-login display_name must not shadow it.
+            authUser = updated;
+          }
         }
       }
-    } catch (ldapErr) {
-      console.error("[Auth] LDAP failed:", ldapErr.message);
     }
   }
 
@@ -195,7 +208,7 @@ async function login({ email: emailInput, password }) {
     user: {
       id: authUser.id,
       email: authUser.email,
-      displayName: authUser.display_name || authUser.displayName,
+      displayName: authUser.display_name ?? authUser.displayName ?? "",
       role: authUser.role,
     },
   };
