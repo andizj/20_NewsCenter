@@ -10,6 +10,34 @@
         <p class="page-sub">Verwalte deine Agenten und Präferenzen</p>
       </div>
 
+      <!-- ─────────────── Profil (LDAP-Profiling) ─────────────── -->
+      <section class="agent-card profile-agent">
+        <div class="agent-header">
+          <span class="agent-icon">🎓</span>
+          <div>
+            <div class="agent-title">Profil</div>
+            <div class="agent-desc">
+              Studieninformationen, die automatisch aus deiner FH-Kennung abgeleitet werden.
+              Die Anzeige ist schreibgeschützt.
+            </div>
+          </div>
+          <span class="profile-readonly">Nur zur Anzeige</span>
+        </div>
+
+        <div v-if="profileLoading" class="agent-loading">Lade Profil…</div>
+        <p v-else-if="profileError" class="error-msg">{{ profileError }}</p>
+        <div v-else-if="profile" class="profile-grid">
+          <div v-for="row in profileRows" :key="row.label" class="profile-item">
+            <span class="profile-label">{{ row.label }}</span>
+            <span
+              class="profile-value"
+              :class="{ 'is-placeholder': isMissing(row.value) }"
+            >{{ formatProfileValue(row) }}</span>
+          </div>
+        </div>
+        <div v-else class="profile-empty">Keine Profildaten vorhanden.</div>
+      </section>
+
       <!-- ─────────────── Role Agent ─────────────── -->
       <section class="agent-card role-agent">
         <div class="agent-header">
@@ -164,6 +192,7 @@
 import AppHeader from '../components/AppHeader.vue';
 import { useSubscriptions } from '../composables/useSubscriptions';
 import { getTags } from '../services/tagsService';
+import { getMyProfile } from '../services/profileService';
 
 const SUMMARIZE_MESSAGES_STORAGE_KEY = 'newscenter_summarize_messages';
 
@@ -189,6 +218,9 @@ export default {
 
     return {
       userRole,
+      profile: null,
+      profileLoading: true,
+      profileError: null,
       allTags: [],
       subError: null,
       selectedNewTag: '',
@@ -211,9 +243,23 @@ export default {
       const subscribedIds = new Set(this.subscribedTags.map(t => t.id));
       return this.allTags.filter(t => !subscribedIds.has(t.id));
     },
+    profileRows() {
+      const p = this.profile;
+      if (!p) return [];
+      return [
+        { label: 'Anzeigename', value: p.displayName, suffix: '' },
+        { label: 'E-Mail', value: p.email, suffix: '' },
+        { label: 'Rolle', value: p.role, suffix: '' },
+        { label: 'Studiengang', value: p.studyProgram, suffix: '' },
+        { label: 'Abschlussart', value: p.degree, suffix: '' },
+        { label: 'Studienbeginnjahr', value: p.studyStartYear, suffix: '' },
+        { label: 'Aktuelles Semester', value: p.currentSemester, suffix: '. Semester' },
+      ];
+    },
   },
 
   async mounted() {
+    this.loadProfile();
     await Promise.all([
       this.loadSubscriptions().catch(() => { this.subError = 'Abonnements konnten nicht geladen werden.'; }),
       this.loadAllTags(),
@@ -221,6 +267,31 @@ export default {
   },
 
   methods: {
+    async loadProfile() {
+      this.profileLoading = true;
+      this.profileError = null;
+      try {
+        this.profile = await getMyProfile();
+      } catch (err) {
+        this.profile = null;
+        this.profileError =
+          err?.response?.status === 401
+            ? 'Nicht angemeldet – bitte erneut einloggen.'
+            : 'Profil konnte nicht geladen werden.';
+      } finally {
+        this.profileLoading = false;
+      }
+    },
+
+    isMissing(value) {
+      return value === null || value === undefined || value === '';
+    },
+
+    formatProfileValue(row) {
+      if (this.isMissing(row.value)) return 'Nicht verfügbar';
+      return row.suffix ? `${row.value}${row.suffix}` : String(row.value);
+    },
+
     async loadAllTags() {
       try { this.allTags = await getTags(); } catch (e) { /* tags unavailable */ }
     },
