@@ -1,5 +1,6 @@
 const express = require("express");
 const userService = require("../services/userService");
+const auth = require("../middleware/auth");
 const { isUuid } = require("../utils/validators");
 const { handleError } = require("../utils/errorHandler");
 
@@ -29,6 +30,17 @@ router.post("/login", async (req, res) => {
 router.get("/", async (_req, res) => {
   try {
     return res.json(await userService.getAllUsers());
+  } catch (err) {
+    return handleError(res, err);
+  }
+});
+
+/** GET /users/me – Profile of the authenticated user (JWT required).
+ *  Registered before /:id so the literal path is not captured by the param. */
+router.get("/me", auth, async (req, res) => {
+  try {
+    // userId comes exclusively from the validated JWT (req.user), never from a parameter.
+    return res.json(await userService.getMyProfile(req.user.id));
   } catch (err) {
     return handleError(res, err);
   }

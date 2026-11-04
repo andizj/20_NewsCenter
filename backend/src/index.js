@@ -190,6 +190,78 @@ const swaggerDocument = {
         },
       },
     },
+    "/api/v1/users/me": {
+      get: {
+        summary: "Eigenes Profil abrufen (LDAP-Profiling)",
+        description:
+          "Gibt das Profil des per JWT authentifizierten Benutzers zurück. " +
+          "Die Benutzer-ID stammt ausschließlich aus dem validierten Token. " +
+          "Studiengang, Abschlussart und Studienbeginnjahr sind die aus der " +
+          "Studierendenkennung abgeleiteten Werte (bzw. `null`, wenn keine " +
+          "Kennung vorliegt, z. B. lokale Konten). Das aktuelle Semester wird " +
+          "dynamisch berechnet und nicht gespeichert. Enthält nie Passwort-Hashes.",
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: {
+            description: "Profil des angemeldeten Benutzers",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/UserProfile" },
+              },
+            },
+          },
+          401: { description: "Fehlende oder ungültige Authentifizierung" },
+          404: { description: "User not found" },
+        },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      BearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+      },
+    },
+    schemas: {
+      UserProfile: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          displayName: { type: "string", example: "if24b032" },
+          email: {
+            type: "string",
+            format: "email",
+            example: "if24b032@technikum-wien.at",
+          },
+          role: { type: "string", enum: ["STUDENT", "EMPLOYEE"] },
+          studyProgram: {
+            type: "string",
+            nullable: true,
+            example: "Informatik",
+            description: "Aus der Kennung abgeleitet, sonst `null`",
+          },
+          degree: {
+            type: "string",
+            nullable: true,
+            example: "Bachelor",
+            description: "Aus der Kennung abgeleitet, sonst `null`",
+          },
+          studyStartYear: {
+            type: "integer",
+            nullable: true,
+            example: 2024,
+          },
+          currentSemester: {
+            type: "integer",
+            nullable: true,
+            example: 5,
+            description: "Dynamisch berechnet, nicht gespeichert",
+          },
+        },
+      },
+    },
   },
 };
 
@@ -200,6 +272,8 @@ app.use(express.json());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use("/users", usersRouter);
+// Versionierter Alias für neue Endpunkte (z.B. GET /api/v1/users/me)
+app.use("/api/v1/users", usersRouter);
 app.use("/tags", tagsRouter);
 app.use("/messages", messagesRouter);
 
