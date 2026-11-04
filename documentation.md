@@ -1,3 +1,49 @@
+# NewsCenter – integrierter Stand aus Sprint 2 und Sprint 3
+
+Die folgenden Abschnitte erhalten die Dokumentation beider Entwicklungsstände.
+Die Integration verbindet Tag-Vorschläge, Subscriber Counts, persistente
+Publish-Agent-Einstellungen und die versionierte API mit dem LDAP-Studienprofil.
+
+- Die kanonischen API-Routen liegen unter `/api/v1/users`, `/api/v1/tags` und
+  `/api/v1/messages`. Die bisherigen Root-Pfade bleiben kompatible Aliase.
+- Der Frontend-API-Client ergänzt `/api/v1`; der Profilservice ruft deshalb
+  `/users/me` auf. Der resultierende Request lautet `/api/v1/users/me`.
+- Swagger liegt in `backend/swagger.js` und enthält auch das Profil-Schema und
+  den Profil-Endpunkt. `/subscribe` bleibt außerhalb des API-Präfixes.
+- `OLLAMA_MODEL` ist konfigurierbar und verwendet standardmäßig `llama3`,
+  passend zum vorhandenen Modell. Der Tag-Vorschlagsdienst nutzt OpenThesaurus
+  und direkte Texttreffer unabhängig von Ollama.
+- Die additive Migration `001_user_profile_fields.sql` wird für bestehende
+  Datenbanken wie unten beschrieben angewendet; bestehende Volumes bleiben erhalten.
+
+## Integrationsprüfung vom 4. November 2026
+
+- Backend: **9 Suites / 108 Tests bestanden**, einschließlich 15 zusätzlicher
+  Tests in `backend/tests/sprintIntegration.test.js`. Diese starten den echten
+  App-Einstieg auf einem freien Port mit gemockter DB und gemocktem Thesaurus
+  und prüfen Versionierung, Legacy-Aliase, Counts, Vorschläge, Profil, CORS,
+  Swagger und den SSE-Pfad gemeinsam.
+- Frontend: `npm run lint -- --no-fix` fehlerfrei; `npm run build` erfolgreich.
+  Build-Hinweise betreffen Browserslist-Daten und Asset-/Bundle-Größen.
+- Backend- und Frontend-Docker-Images erfolgreich gebaut und die beiden
+  App-Container für Smokeprüfungen gestartet.
+- **16 Live-Smokeprüfungen bestanden**: versionierte und bisherige Routen,
+  Counts gegen SQL-Zählung, bestehende/neue Tag-Vorschläge ohne Speicherung,
+  vorhandenes Studienprofil samt Semester, Feed, Suche, Swagger und installierte
+  Ollama-Modellkonfiguration.
+- Zusätzliche Frontend-Prüfungen bestätigen den einfachen API-Prefix,
+  gespeicherte Agent-Einstellungen samt Änderungsereignis, die Übernahme
+  bestehender/neuer Topics und die gemeinsame Darstellung von Profil und
+  Subscriber Counts. Die ausgelieferten Bundles enthalten beide Sprint-Stände.
+- Migration zweimal auf einer temporären Tabelle geprüft und zurückgerollt:
+  vier nullable Spalten, Unique-Constraint und vorhandener Testdatensatz erhalten.
+  Die bestehende Datenbank enthält die vier Profilspalten bereits.
+- Schreibende Veröffentlichungs-/Abonnement-Akzeptanztests und ein echter
+  LDAP-Bind sind nicht Bestandteil dieser Integrationsprüfung; DB/LDAP in den
+  entsprechenden automatisierten Tests sind gemockt.
+
+---
+
 # Sprint 3 – LDAP-Profiling & Identifikationslogik
 
 Dieses Dokument beschreibt die im Sprint 3 implementierten Funktionen, den
@@ -108,7 +154,7 @@ Siehe Abschnitt 3 für die vollständige Feldliste und Beispiele.
 - Neue read-only Profilkarte (Badge „Nur zur Anzeige") oberhalb des Rollen-Agent.
 - Daten werden über `frontend/src/services/profileService.js` →
   `GET /api/v1/users/me` geladen (bestehender Axios-Client mit
-  Bearer-Token-Interceptor, `baseURL` = `VUE_APP_API_URL`).
+  Bearer-Token-Interceptor, `baseURL` = `VUE_APP_API_URL` + `/api/v1`).
 - Anzeige: Anzeigename, E-Mail, Rolle, Studiengang, Abschlussart,
   Studienbeginnjahr, Aktuelles Semester (`5. Semester`).
 - Fehlende Werte (`null`/leer) werden als **„Nicht verfügbar"** dargestellt
@@ -227,7 +273,7 @@ mehrfach ausgeführt werden.
 | `backend/src/services/userService.js` | `deriveProfile()`, Profilerfassung im Login, `getMyProfile()` |
 | `backend/src/routes/users.js` | `GET /me` (auth) vor `/:id` |
 | `backend/src/repositories/userRepository.js` | optionale Profil-Parameter in `create()`, `updateProfile()`, `findProfileById()` |
-| `backend/src/index.js` | Mount `/api/v1/users`, Swagger (`UserProfile`, `BearerAuth`) |
+| `backend/src/index.js`, `backend/swagger.js` | API-Mounts und Swagger (`UserProfile`, `BearerAuth`) |
 | `db/migrations/001_user_profile_fields.sql` | **neu** – Migration |
 | `db/init/01_schema.sql` | Profilspalten für frische Datenbanken |
 | `frontend/src/services/profileService.js` | **neu** – `getMyProfile()` |
@@ -358,3 +404,127 @@ cd frontend && npm run lint && npm run build
 Get-Content -Raw db/migrations/001_user_profile_fields.sql |
   docker exec -i newscenter-db psql -U newscenter -d newscenter -v ON_ERROR_STOP=1
 ```
+
+---
+
+# Innolab 3 Sprint 2
+
+## Ziel
+
+Vollständige Entkopplung der Backend-Services von der Benutzeroberfläche (Frontend-Unabhängigkeit).
+
+---
+
+## 1. CORS – Konfigurierbar per ENV
+
+**Problem:** `app.use(cors())` erlaubte alle Origins unkontrolliert.
+
+**Lösung:** Origin-Whitelist über `ALLOWED_ORIGIN` (ENV):
+
+```js
+// backend/src/index.js
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || "*").split(",").map(o => o.trim());
+app.use(cors({ origin: ..., methods: [...], allowedHeaders: [...], credentials: true }));
+```
+
+| Datei | Änderung |
+|---|---|
+| `backend/.env` | `ALLOWED_ORIGIN=http://localhost:8081` |
+| `docker-compose.yml` | `- ALLOWED_ORIGIN=http://localhost:8081` |
+
+> Für Produktion: `ALLOWED_ORIGIN=https://meine-app.at` (kommasepariert für mehrere Domains)
+
+---
+
+## 2. API-Versioning – `/api/v1/...`
+
+**Problem:** Alle Endpunkte lagen auf dem Root-Pfad – Breaking Changes erfordern simultane Frontend-Anpassung.
+
+**Lösung:** Alle Routen unter `/api/v1` versioniert:
+
+```js
+// backend/src/index.js
+const API_PREFIX = "/api/v1";
+app.use(`${API_PREFIX}/users`,    usersRouter);
+app.use(`${API_PREFIX}/tags`,     tagsRouter);
+app.use(`${API_PREFIX}/messages`, messagesRouter);
+```
+
+```js
+// frontend/src/services/api.js
+baseURL: (process.env.VUE_APP_API_URL || 'http://localhost:3000') + '/api/v1'
+```
+
+**Ausnahme:** `/subscribe` (SSE) bleibt ohne Prefix – `EventSource` im Browser unterstützt keine Custom-Headers.
+
+Im integrierten Stand bleiben `/users`, `/tags` und `/messages` als kompatible
+Aliase erhalten. Der Profilservice verwendet wie die anderen Services einen
+Pfad ohne eigenes `/api/v1`, damit das Präfix nur einmal ergänzt wird.
+
+---
+
+## 3. Swagger / OpenAPI – Vollständige Dokumentation
+
+**Problem:** Die meisten Endpunkte fehlten in der Swagger-Spec – externe Systeme konnten die API nicht vollständig aus der Doku ableiten.
+
+**Lösung:** Alle Endpunkte vollständig in `backend/swagger.js` dokumentiert und via `setupSwagger()` eingebunden:
+
+| Gruppe | Endpunkte |
+|---|---|
+| **Users** | `GET /users`, `POST /users`, `POST /users/login`, `GET /users/{id}` |
+| **Subscriptions** | `GET /users/{id}/subscriptions`, `POST /users/{id}/subscriptions`, `DELETE /users/{id}/subscriptions/{tagId}` |
+| **Tags** | `GET /tags`, `POST /tags`, `GET /tags/{id}` |
+| **Messages** | `GET /messages`, `POST /messages`, `GET /messages/{id}`, `GET /messages/search` |
+| **Messages** | `POST /messages/{id}/tags`, `POST /messages/{id}/summarize`, `POST /messages/tag-suggestions` |
+| **SSE** | `GET /subscribe` |
+
+Zusätzlich ergänzt:
+- **`components/schemas`**: wiederverwendbare Schemas für `User`, `Message`, `Tag`, `Error`
+- **`securitySchemes`**: `BearerAuth` (JWT) – alle geschützten Endpunkte mit `security`-Referenz
+- **Tag-Gruppierung**: Endpunkte in `Users`, `Subscriptions`, `Tags`, `Messages`, `SSE` gegliedert
+
+Erreichbar unter: `http://localhost:3000/api-docs`
+
+---
+
+## 4. Swagger-Auslagerung – `swagger.js`
+
+**Problem:** Die vollständige OpenAPI-Spec (~350 Zeilen JSON) war direkt in `backend/src/index.js` eingebettet → Datei hatte 574 Zeilen, schlecht wartbar.
+
+**Lösung:** Swagger-Doku in `backend/swagger.js` ausgelagert:
+
+```js
+// backend/swagger.js
+function setupSwagger(app, { port, apiPrefix }) { ... }
+module.exports = { setupSwagger };
+
+// backend/src/index.js
+const { setupSwagger } = require("../swagger");
+setupSwagger(app, { port, apiPrefix: API_PREFIX });
+```
+
+| | Vorher | Nachher |
+|---|---|---|
+| `index.js` | 574 Zeilen | **121 Zeilen** |
+| `swagger.js` | 55 Zeilen (veraltet) | **~360 Zeilen** (vollständig) |
+
+---
+## 5. AppHeader und Settings änderung
+
+**Problem:** Man konnte den Benutzernamen nicht sehen. Man wusste nicht welche Account eingeloggt ist.
+
+**Lösung:** AppHeader und SettingsView wurden ergänzt.
+
+## Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `backend/src/index.js` | CORS-Whitelist + `/api/v1`-Prefix + SSE-Header bereinigt → Swagger ausgelagert (121 Zeilen) |
+| `backend/swagger.js` | Vollständige OpenAPI-Spec mit allen Endpunkten, Schemas und Auth |
+| `backend/.env` | `ALLOWED_ORIGIN` hinzugefügt |
+| `docker-compose.yml` | `ALLOWED_ORIGIN` als ENV-Variable |
+| `frontend/src/services/api.js` | `baseURL` um `/api/v1` erweitert |
+| `frontend/src/services/sseService.js` | Kommentar zur SSE-Ausnahme ergänzt |
+| `frontend/src/components/AppHeader.vue` | Benutzernamen und Login-Info ergänzt |
+| `frontend/src/views/SettingsView.vue` | Benutzernamen und Login-Info ergänzt |
+| `documentation.md` | Dieses Dokument |

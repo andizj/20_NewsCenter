@@ -48,7 +48,12 @@
       <button class="btn settings-btn" @click="$router.push('/settings')" title="Einstellungen">
         ⚙️
       </button>
-      
+
+      <div class="user-chip">
+        <span class="user-avatar">{{ userInitial }}</span>
+        <span class="user-name">{{ displayName }}</span>
+      </div>
+
       <button class="btn logout-btn" @click="logout">Logout</button>
     </div>
   </header>
@@ -66,6 +71,15 @@ export default {
     }
   },
   computed: {
+    displayName() {
+      try {
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        return user?.displayName || user?.email || 'Unbekannt';
+      } catch { return 'Unbekannt'; }
+    },
+    userInitial() {
+      return this.displayName.charAt(0).toUpperCase();
+    },
     newNotifications() {
       return notificationStore.newSubscribed;
     },

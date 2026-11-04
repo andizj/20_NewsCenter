@@ -130,7 +130,8 @@ async function findProfileById(id) {
 }
 
 /**
- * Returns all tags a user has subscribed to.
+ * Returns all tags a user has subscribed to, including the current
+ * subscriber count of every tag (calculated from the subscriptions table).
  * @param {string} userId
  */
 async function findSubscriptions(userId) {
@@ -138,10 +139,13 @@ async function findSubscriptions(userId) {
     `SELECT t.id,
             t.name,
             t.description,
-            t.created_at AS "createdAt"
+            t.created_at AS "createdAt",
+            COUNT(all_subs.user_id)::int AS "subscriberCount"
      FROM subscriptions s
      JOIN tags t ON t.id = s.tag_id
+     LEFT JOIN subscriptions all_subs ON all_subs.tag_id = t.id
      WHERE s.user_id = $1::uuid
+     GROUP BY t.id
      ORDER BY t.name ASC`,
     [userId]
   );

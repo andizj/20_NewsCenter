@@ -1,11 +1,12 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const swaggerUi = require("swagger-ui-express");
+const { setupSwagger } = require("../swagger");
 const { pool } = require("./db");
 
 const app = express();
 const port = process.env.PORT || 3000;
+const API_PREFIX = "/api/v1";
 
 let clients = [];
 
@@ -24,259 +25,43 @@ const usersRouter = require("./routes/users");
 const tagsRouter = require("./routes/tags");
 const messagesRouter = require("./routes/messages")(broadcaster);
 
-// --- Simple OpenAPI / Swagger definition ---
-const swaggerDocument = {
-  openapi: "3.0.0",
-  info: {
-    title: "NewsCenter API",
-    version: "1.0.0",
-    description:
-      "Einfache Dokumentation der wichtigsten Endpunkte für NewsCenter.",
-  },
-  servers: [
-    {
-      url: "http://localhost:" + port,
-    },
-  ],
-  paths: {
-    "/subscribe": {
-      get: {
-        summary: "Server-Sent-Events Feed abonnieren",
-        description:
-          "Stellt einen SSE-Stream bereit. Optional kann mit dem Query-Parameter `tag` nach einem Tag gefiltert werden.",
-        parameters: [
-          {
-            name: "tag",
-            in: "query",
-            required: false,
-            schema: { type: "string" },
-            description: "Optionaler Tag-Name zum Filtern der Nachrichten.",
-          },
-        ],
-        responses: {
-          200: {
-            description: "SSE-Stream gestartet.",
-          },
-        },
-      },
-    },
-    "/messages": {
-      get: {
-        summary: "Alle Nachrichten auflisten",
-        responses: {
-          200: {
-            description: "Liste aller Nachrichten",
-          },
-        },
-      },
-      post: {
-        summary: "Neue Nachricht erstellen",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["authorId", "title", "body"],
-                properties: {
-                  authorId: {
-                    type: "string",
-                    format: "uuid",
-                  },
-                  title: { type: "string" },
-                  body: { type: "string" },
-                },
-              },
-              example: {
-                authorId: "uuid-of-user",
-                title: "Welcome",
-                body: "Hello students!",
-              },
-            },
-          },
-        },
-        responses: {
-          201: { description: "Nachricht erfolgreich erstellt" },
-          400: { description: "Fehlende Pflichtfelder" },
-        },
-      },
-    },
-    "/tags": {
-      get: {
-        summary: "Alle Tags auflisten",
-        responses: {
-          200: { description: "Liste aller Tags" },
-        },
-      },
-      post: {
-        summary: "Neuen Tag anlegen",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["name"],
-                properties: {
-                  name: { type: "string" },
-                  description: { type: "string" },
-                },
-              },
-              example: {
-                name: "it",
-                description: "IT Updates",
-              },
-            },
-          },
-        },
-        responses: {
-          201: { description: "Tag erfolgreich erstellt" },
-          400: { description: "Validation-Fehler" },
-        },
-      },
-    },
-    "/users/{id}/subscriptions": {
-      get: {
-        summary: "Abonnierte Tags eines Users anzeigen",
-        parameters: [
-          {
-            name: "id",
-            in: "path",
-            required: true,
-            schema: { type: "string", format: "uuid" },
-            description: "User-ID",
-          },
-        ],
-        responses: {
-          200: {
-            description: "Liste der abonnierten Tags",
-          },
-          400: { description: "Ungültige User-ID" },
-          404: { description: "User nicht gefunden" },
-        },
-      },
-      post: {
-        summary: "User auf einen Tag subscriben",
-        parameters: [
-          {
-            name: "id",
-            in: "path",
-            required: true,
-            schema: { type: "string", format: "uuid" },
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["tagId"],
-                properties: {
-                  tagId: { type: "string", format: "uuid" },
-                },
-              },
-              example: {
-                tagId: "uuid-of-tag",
-              },
-            },
-          },
-        },
-        responses: {
-          201: { description: "Subscription angelegt" },
-          200: { description: "Subscription existierte bereits" },
-          400: { description: "Ungültige IDs / fehlende Daten" },
-          404: { description: "User oder Tag nicht gefunden" },
-        },
-      },
-    },
-    "/api/v1/users/me": {
-      get: {
-        summary: "Eigenes Profil abrufen (LDAP-Profiling)",
-        description:
-          "Gibt das Profil des per JWT authentifizierten Benutzers zurück. " +
-          "Die Benutzer-ID stammt ausschließlich aus dem validierten Token. " +
-          "Studiengang, Abschlussart und Studienbeginnjahr sind die aus der " +
-          "Studierendenkennung abgeleiteten Werte (bzw. `null`, wenn keine " +
-          "Kennung vorliegt, z. B. lokale Konten). Das aktuelle Semester wird " +
-          "dynamisch berechnet und nicht gespeichert. Enthält nie Passwort-Hashes.",
-        security: [{ BearerAuth: [] }],
-        responses: {
-          200: {
-            description: "Profil des angemeldeten Benutzers",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/UserProfile" },
-              },
-            },
-          },
-          401: { description: "Fehlende oder ungültige Authentifizierung" },
-          404: { description: "User not found" },
-        },
-      },
-    },
-  },
-  components: {
-    securitySchemes: {
-      BearerAuth: {
-        type: "http",
-        scheme: "bearer",
-        bearerFormat: "JWT",
-      },
-    },
-    schemas: {
-      UserProfile: {
-        type: "object",
-        properties: {
-          id: { type: "string", format: "uuid" },
-          displayName: { type: "string", example: "if24b032" },
-          email: {
-            type: "string",
-            format: "email",
-            example: "if24b032@technikum-wien.at",
-          },
-          role: { type: "string", enum: ["STUDENT", "EMPLOYEE"] },
-          studyProgram: {
-            type: "string",
-            nullable: true,
-            example: "Informatik",
-            description: "Aus der Kennung abgeleitet, sonst `null`",
-          },
-          degree: {
-            type: "string",
-            nullable: true,
-            example: "Bachelor",
-            description: "Aus der Kennung abgeleitet, sonst `null`",
-          },
-          studyStartYear: {
-            type: "integer",
-            nullable: true,
-            example: 2024,
-          },
-          currentSemester: {
-            type: "integer",
-            nullable: true,
-            example: 5,
-            description: "Dynamisch berechnet, nicht gespeichert",
-          },
-        },
-      },
-    },
-  },
-};
+// CORS – Origin über ENV konfigurierbar; mehrere Origins als kommaseparierte Liste möglich
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || "*")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 
-app.use(cors());
+app.use(
+  cors({
+    origin: allowedOrigins.length === 1 && allowedOrigins[0] === "*"
+      ? "*"
+      : (origin, cb) => {
+          // Requests ohne Origin (z.B. curl, Postman) immer erlauben
+          if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+          cb(new Error(`CORS: Origin '${origin}' not allowed`));
+        },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
-// Swagger UI unter /api-docs
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// Swagger UI (Doku in backend/swagger.js)
+setupSwagger(app, { port, apiPrefix: API_PREFIX });
 
+// Versionierte API-Routen
+app.use(`${API_PREFIX}/users`, usersRouter);
+app.use(`${API_PREFIX}/tags`, tagsRouter);
+app.use(`${API_PREFIX}/messages`, messagesRouter);
+
+// Bestehende Clients können dieselben Router weiterhin ohne Prefix verwenden.
 app.use("/users", usersRouter);
-// Versionierter Alias für neue Endpunkte (z.B. GET /api/v1/users/me)
-app.use("/api/v1/users", usersRouter);
 app.use("/tags", tagsRouter);
 app.use("/messages", messagesRouter);
 
+// SSE bleibt absichtlich außerhalb des /api/v1-Prefixes,
+// da EventSource im Browser keine custom Headers unterstützt.
 app.get("/subscribe", (req, res) => {
   const { token } = req.query;
 
@@ -292,11 +77,12 @@ app.get("/subscribe", (req, res) => {
     return res.status(401).json({ error: "Invalid token" });
   }
 
+  // CORS wird bereits durch die globale cors()-Middleware gesetzt;
+  // kein manueller Access-Control-Allow-Origin-Header mehr nötig.
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     Connection: "keep-alive",
     "Cache-Control": "no-cache",
-    "Access-Control-Allow-Origin": "*",
   });
 
   const clientId = Date.now();
@@ -321,7 +107,7 @@ app.get("/subscribe", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.json({ message: "NewsCenter backend is running" });
+  res.json({ message: "NewsCenter backend is running", apiPrefix: API_PREFIX });
 });
 
 app.get("/db-check", async (req, res) => {

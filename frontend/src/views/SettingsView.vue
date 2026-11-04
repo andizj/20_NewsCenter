@@ -48,6 +48,7 @@
           </div>
         </div>
         <div class="role-display">
+          <div class="user-display-name">{{ displayName }}</div>
           <span class="role-badge" :class="roleBadgeClass">{{ userRole }}</span>
           <span class="role-hint">Vergeben durch LDAP · Nur zur Anzeige</span>
         </div>
@@ -74,7 +75,12 @@
                 :key="tag.id"
                 class="tag-row"
               >
-                <span class="tag-name"># {{ tag.name }}</span>
+                <span class="tag-info">
+                  <span class="tag-name"># {{ tag.name }}</span>
+                  <span v-if="hasSubscriberCount(tag)" class="tag-subs">
+                    · {{ subscriberLabel(tag.subscriberCount) }}
+                  </span>
+                </span>
                 <button class="remove-btn" @click="removeSub(tag)" :disabled="removing === tag.id">
                   <span v-if="removing === tag.id">…</span>
                   <span v-else>✕</span>
@@ -94,7 +100,7 @@
                   :key="tag.id"
                   :value="tag.id"
                 >
-                  # {{ tag.name }}
+                  # {{ tag.name }}{{ hasSubscriberCount(tag) ? ` · ${subscriberLabel(tag.subscriberCount)}` : '' }}
                 </option>
               </select>
               <button
@@ -116,24 +122,36 @@
             <span class="agent-icon">📢</span>
             <div>
               <div class="agent-title">Publish Agent</div>
-              <div class="agent-desc">KI-gestützte Vorschläge beim Verfassen von Nachrichten.</div>
+              <div class="agent-desc">Vorschläge beim Verfassen von Nachrichten.</div>
             </div>
           </div>
 
           <div class="toggle-row">
-            <span class="toggle-label">Auto-Tagging Vorschläge</span>
+            <div>
+              <div class="toggle-label">Auto-Tagging Vorschläge</div>
+              <div class="toggle-sublabel">
+                Schlägt passende bestehende (inkl. Abonnentenzahl) und neue Tags vor, während du Titel und Text schreibst.
+              </div>
+            </div>
             <button
               class="toggle-switch"
               :class="{ on: publishAgent.autoTagging }"
-              @click="publishAgent.autoTagging = !publishAgent.autoTagging"
+              @click="toggleAutoTagging"
             >
               <span class="toggle-knob" />
             </button>
           </div>
 
-          <div class="coming-soon">
-            <span class="cs-badge">Bald verfügbar</span>
-            KI schlägt passende Tags basierend auf deinem Text vor.
+          <div class="agent-status">
+            <span class="status-badge" :class="{ active: publishAgent.autoTagging }">
+              {{ publishAgent.autoTagging ? 'Aktiv' : 'Aus' }}
+            </span>
+            <span v-if="publishAgent.autoTagging">
+              Die Vorschläge erscheinen im Publish-Formular, sobald du Titel oder Text eingibst.
+            </span>
+            <span v-else>
+              Keine automatischen Vorschläge – die manuelle Topic-Auswahl funktioniert weiterhin.
+            </span>
           </div>
         </section>
       </div>
@@ -193,6 +211,7 @@ import AppHeader from '../components/AppHeader.vue';
 import { useSubscriptions } from '../composables/useSubscriptions';
 import { getTags } from '../services/tagsService';
 import { getMyProfile } from '../services/profileService';
+import { isAutoTaggingEnabled, setAutoTaggingEnabled } from '../services/agentSettings';
 
 const SUMMARIZE_MESSAGES_STORAGE_KEY = 'newscenter_summarize_messages';
 
@@ -214,19 +233,25 @@ export default {
   data() {
     const userRaw = sessionStorage.getItem('user');
     let userRole = 'UNBEKANNT';
-    try { userRole = JSON.parse(userRaw)?.role ?? 'UNBEKANNT'; } catch (e) { /* invalid JSON */ }
+    let displayName = 'Unbekannt';
+    try {
+      const parsed = JSON.parse(userRaw);
+      userRole = parsed?.role ?? 'UNBEKANNT';
+      displayName = parsed?.displayName || parsed?.email || 'Unbekannt';
+    } catch (e) { /* invalid JSON */ }
 
     return {
       userRole,
       profile: null,
       profileLoading: true,
       profileError: null,
+      displayName,
       allTags: [],
       subError: null,
       selectedNewTag: '',
       adding: false,
       removing: null,
-      publishAgent: { autoTagging: true },
+      publishAgent: { autoTagging: isAutoTaggingEnabled() },
       messageAgent: {
         summarize: localStorage.getItem(SUMMARIZE_MESSAGES_STORAGE_KEY) === 'true',
         similarMessages: false,
@@ -299,6 +324,20 @@ export default {
     toggleMessageSummaries() {
       this.messageAgent.summarize = !this.messageAgent.summarize;
       localStorage.setItem(SUMMARIZE_MESSAGES_STORAGE_KEY, String(this.messageAgent.summarize));
+    },
+
+    toggleAutoTagging() {
+      this.publishAgent.autoTagging = !this.publishAgent.autoTagging;
+      setAutoTaggingEnabled(this.publishAgent.autoTagging);
+    },
+
+    hasSubscriberCount(tag) {
+      return typeof tag?.subscriberCount === 'number';
+    },
+
+    subscriberLabel(count) {
+      const value = Number(count) || 0;
+      return `${value} Sub${value === 1 ? '' : 's'}`;
     },
 
     async addSub() {

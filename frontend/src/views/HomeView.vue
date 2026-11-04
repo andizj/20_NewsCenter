@@ -106,7 +106,7 @@ import MessageList from "../components/MessageList.vue";
 import CreateMessageForm from "../components/CreateMessageForm.vue";
 
 import api from "../services/api";
-import { getTags } from "../services/tagsService";
+import { getTags, ensureTag } from "../services/tagsService";
 import { getSubscriptions } from "../services/subscriptionService";
 import sseService from "../services/sseService";
 import { notificationStore } from "../store/notifications";
@@ -417,7 +417,13 @@ export default {
       this.createSuccess = null;
 
       try {
-        if (!payload.title || !payload.body || !payload.tagId || !payload.targetRole) {
+        // Ein neu vorgeschlagener Tag wird ZUERST angelegt (bzw. wiederverwendet),
+        // damit keine Nachricht ohne gültigen Tag veröffentlicht wird.
+        const tagId = payload.newTagName
+          ? await ensureTag(payload.newTagName)
+          : payload.tagId;
+
+        if (!payload.title || !payload.body || !tagId || !payload.targetRole) {
           throw new Error("Bitte Titel, Text, Thema und Zielgruppe wählen.");
         }
 
@@ -430,15 +436,15 @@ export default {
         const newMessageId = msgResponse.data.id;
 
         await api.post(`/messages/${newMessageId}/tags`, {
-          tagId: payload.tagId
+          tagId
         });
 
         this.markMessageUnread(newMessageId);
 
         this.createSuccess = "Nachricht erfolgreich veröffentlicht!";
         
-        // Feed neu laden
-        await this.loadMessages();
+        // Feed und Tag-Liste neu laden (ggf. wurde ein neuer Tag erstellt)
+        await Promise.all([this.loadMessages(), this.loadTags(true)]);
 
       } catch (e) {
         this.createError = e?.response?.data?.error || e?.message || String(e);

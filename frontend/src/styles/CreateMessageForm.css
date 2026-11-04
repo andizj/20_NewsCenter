@@ -46,3 +46,72 @@ select.input {
   appearance: none;
   cursor: pointer;
 }
+
+/* --- Publish agent: tag suggestions --- */
+.suggestions {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+}
+.suggestionsHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.suggestionsTitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.suggestionsMeta { font-size: 11px; color: var(--color-text-muted); }
+.suggestionGroup { display: grid; gap: 6px; }
+.suggestionGroupLabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.suggestionList { display: flex; flex-wrap: wrap; gap: 6px; }
+.suggestionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-accent-border);
+  border-radius: 999px;
+  background: var(--surface-btn);
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.suggestionChip:hover { background: rgba(120, 160, 255, 0.22); }
+.suggestionChip.active {
+  background: rgba(120, 160, 255, 0.3);
+  border-color: var(--color-accent);
+}
+.suggestionName { font-weight: 700; }
+.suggestionCount { font-size: 11px; color: var(--color-text-muted); }
+.suggestionChip.active .suggestionCount { color: var(--color-text-secondary); }
+
+/* New (not yet existing) tag suggestions */
+.suggestionChip.isNew {
+  border-style: dashed;
+  border-color: rgba(66, 185, 131, 0.45);
+}
+.suggestionChip.isNew:hover { background: rgba(66, 185, 131, 0.18); }
+.suggestionChip.isNew.active {
+  background: rgba(66, 185, 131, 0.28);
+  border-color: var(--color-green);
+}
+.suggestionChip.isNew .suggestionCount { color: var(--color-green); }
+.suggestionChip.isNew.active .suggestionCount { color: var(--color-text-secondary); }
+
+.suggestionsHint { font-size: 11px; color: var(--color-text-muted); }
