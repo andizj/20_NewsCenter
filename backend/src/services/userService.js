@@ -2,6 +2,8 @@ const userRepository = require("../repositories/userRepository");
 const tagRepository = require("../repositories/tagRepository");
 const authService = require("./authService");
 const { normalizeEmail } = require("../utils/validators");
+const { parseStudentId } = require("../utils/studentIdParser");
+const { calculateSemester } = require("../utils/semester");
 
 const ALLOWED_ROLES = ["STUDENT", "EMPLOYEE"];
 // Placeholder hash that signals the user is LDAP-only (no local login allowed).
@@ -58,6 +60,54 @@ async function getUserById(id) {
 }
 
 /**
+ * Profile of the authenticated user (id comes from the validated JWT only).
+ * Returns the account data plus the stored LDAP profile fields and the
+ * dynamically computed current semester (never stored).
+ * Profile fields are null when no Kennung-derived data exists (local accounts,
+ * employees, unknown formats). Never includes password hashes.
+ * @param {string} userId - from req.user.id (JWT payload)
+ * @returns {Promise<object>}
+ * Throws 404 if the user does not exist.
+ */
+async function getMyProfile(userId) {
+  const user = await userRepository.findById(userId);
+  if (!user) throw { status: 404, message: "User not found" };
+
+  const profile = await userRepository.findProfileById(userId);
+
+  return {
+    id: user.id,
+    displayName: user.displayName,
+    email: user.email,
+    role: user.role,
+    studyProgram: profile?.studyProgram ?? null,
+    degree: profile?.degree ?? null,
+    studyStartYear: profile?.studyStartYear ?? null,
+    currentSemester: calculateSemester(profile?.studyStartYear ?? null),
+  };
+}
+
+/**
+ * Derives the LDAP profile fields from a username via the Kennungsparser.
+ * Unbekannte Kürzel/Buchstaben bleiben als "unbekannt" stehen (Parser-Fallback).
+ * Returns null if the username is not a valid student ID (e.g. employee
+ * accounts) – then no profile data is stored at all.
+ * @param {string} ldapUsername
+ * @returns {{ studentId: string, studyProgram: string, degree: string, studyStartYear: number }|null}
+ */
+function deriveProfile(ldapUsername) {
+  const parsed = parseStudentId(ldapUsername);
+  if (!parsed.valid) return null;
+
+  return {
+    studentId: parsed.studentId,
+    studyProgram: parsed.studyProgram,
+    degree: parsed.degree,
+    studyStartYear: parsed.studyStartYear,
+  };
+}
+
+/**
  * Hybrid login: tries local DB first, then LDAP as fallback.
  * LDAP users are provisioned Just-in-Time on first successful login.
  * Returns { message, token, user } on success.
@@ -103,6 +153,9 @@ async function login({ email: emailInput, password }) {
       isAuthenticated = true;
       console.log("[Auth] LDAP login:", ldapUsername);
 
+      // Profil aus der Kennung ableiten (Studiengang, Abschluss, Studienbeginn).
+      const profile = deriveProfile(ldapUsername);
+
       // JIT provisioning: create DB record on first LDAP login.
       if (!dbUser) {
         const role = STUDENT_ID_REGEX.test(ldapUsername) ? "STUDENT" : "EMPLOYEE";
@@ -111,9 +164,15 @@ async function login({ email: emailInput, password }) {
           email: userEmail,
           passwordHash: LDAP_DUMMY_HASH,
           role,
+          ...(profile || {}),
         });
       } else {
         authUser = dbUser;
+        // Profildaten bei jedem LDAP-Login nachführen – ausschließlich für
+        // LDAP-Konten, lokale Benutzerkonten bleiben unverändert.
+        if (!isLocalUser && profile) {
+          await userRepository.updateProfile(dbUser.id, profile);
+        }
       }
     } catch (ldapErr) {
       console.error("[Auth] LDAP failed:", ldapErr.message);
@@ -183,6 +242,7 @@ module.exports = {
   createUser,
   getAllUsers,
   getUserById,
+  getMyProfile,
   login,
   getSubscriptions,
   addSubscription,
