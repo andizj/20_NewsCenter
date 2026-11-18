@@ -10,6 +10,34 @@
         <p class="page-sub">Verwalte deine Agenten und Präferenzen</p>
       </div>
 
+      <!-- ─────────────── Profil (LDAP-Profiling) ─────────────── -->
+      <section class="agent-card profile-agent">
+        <div class="agent-header">
+          <span class="agent-icon">🎓</span>
+          <div>
+            <div class="agent-title">Profil</div>
+            <div class="agent-desc">
+              Studieninformationen, die automatisch aus deiner FH-Kennung abgeleitet werden.
+              Die Anzeige ist schreibgeschützt.
+            </div>
+          </div>
+          <span class="profile-readonly">Nur zur Anzeige</span>
+        </div>
+
+        <div v-if="profileLoading" class="agent-loading">Lade Profil…</div>
+        <p v-else-if="profileError" class="error-msg">{{ profileError }}</p>
+        <div v-else-if="profile" class="profile-grid">
+          <div v-for="row in profileRows" :key="row.label" class="profile-item">
+            <span class="profile-label">{{ row.label }}</span>
+            <span
+              class="profile-value"
+              :class="{ 'is-placeholder': isMissing(row.value) }"
+            >{{ formatProfileValue(row) }}</span>
+          </div>
+        </div>
+        <div v-else class="profile-empty">Keine Profildaten vorhanden.</div>
+      </section>
+
       <!-- ─────────────── Role Agent ─────────────── -->
       <section class="agent-card role-agent">
         <div class="agent-header">
@@ -20,6 +48,7 @@
           </div>
         </div>
         <div class="role-display">
+          <div class="user-display-name">{{ displayName }}</div>
           <span class="role-badge" :class="roleBadgeClass">{{ userRole }}</span>
           <span class="role-hint">Vergeben durch LDAP · Nur zur Anzeige</span>
         </div>
@@ -46,7 +75,12 @@
                 :key="tag.id"
                 class="tag-row"
               >
-                <span class="tag-name"># {{ tag.name }}</span>
+                <span class="tag-info">
+                  <span class="tag-name"># {{ tag.name }}</span>
+                  <span v-if="hasSubscriberCount(tag)" class="tag-subs">
+                    · {{ subscriberLabel(tag.subscriberCount) }}
+                  </span>
+                </span>
                 <button class="remove-btn" @click="removeSub(tag)" :disabled="removing === tag.id">
                   <span v-if="removing === tag.id">…</span>
                   <span v-else>✕</span>
@@ -66,7 +100,7 @@
                   :key="tag.id"
                   :value="tag.id"
                 >
-                  # {{ tag.name }}
+                  # {{ tag.name }}{{ hasSubscriberCount(tag) ? ` · ${subscriberLabel(tag.subscriberCount)}` : '' }}
                 </option>
               </select>
               <button
@@ -88,24 +122,36 @@
             <span class="agent-icon">📢</span>
             <div>
               <div class="agent-title">Publish Agent</div>
-              <div class="agent-desc">KI-gestützte Vorschläge beim Verfassen von Nachrichten.</div>
+              <div class="agent-desc">Vorschläge beim Verfassen von Nachrichten.</div>
             </div>
           </div>
 
           <div class="toggle-row">
-            <span class="toggle-label">Auto-Tagging Vorschläge</span>
+            <div>
+              <div class="toggle-label">Auto-Tagging Vorschläge</div>
+              <div class="toggle-sublabel">
+                Schlägt passende bestehende (inkl. Abonnentenzahl) und neue Tags vor, während du Titel und Text schreibst.
+              </div>
+            </div>
             <button
               class="toggle-switch"
               :class="{ on: publishAgent.autoTagging }"
-              @click="publishAgent.autoTagging = !publishAgent.autoTagging"
+              @click="toggleAutoTagging"
             >
               <span class="toggle-knob" />
             </button>
           </div>
 
-          <div class="coming-soon">
-            <span class="cs-badge">Bald verfügbar</span>
-            KI schlägt passende Tags basierend auf deinem Text vor.
+          <div class="agent-status">
+            <span class="status-badge" :class="{ active: publishAgent.autoTagging }">
+              {{ publishAgent.autoTagging ? 'Aktiv' : 'Aus' }}
+            </span>
+            <span v-if="publishAgent.autoTagging">
+              Die Vorschläge erscheinen im Publish-Formular, sobald du Titel oder Text eingibst.
+            </span>
+            <span v-else>
+              Keine automatischen Vorschläge – die manuelle Topic-Auswahl funktioniert weiterhin.
+            </span>
           </div>
         </section>
       </div>
@@ -164,6 +210,9 @@
 import AppHeader from '../components/AppHeader.vue';
 import { useSubscriptions } from '../composables/useSubscriptions';
 import { getTags } from '../services/tagsService';
+import { getMyProfile } from '../services/profileService';
+import { isAutoTaggingEnabled, setAutoTaggingEnabled } from '../services/agentSettings';
+import { userStore } from '../store/user';
 
 const SUMMARIZE_MESSAGES_STORAGE_KEY = 'newscenter_summarize_messages';
 
@@ -183,18 +232,16 @@ export default {
   },
 
   data() {
-    const userRaw = sessionStorage.getItem('user');
-    let userRole = 'UNBEKANNT';
-    try { userRole = JSON.parse(userRaw)?.role ?? 'UNBEKANNT'; } catch (e) { /* invalid JSON */ }
-
     return {
-      userRole,
+      profile: null,
+      profileLoading: true,
+      profileError: null,
       allTags: [],
       subError: null,
       selectedNewTag: '',
       adding: false,
       removing: null,
-      publishAgent: { autoTagging: true },
+      publishAgent: { autoTagging: isAutoTaggingEnabled() },
       messageAgent: {
         summarize: localStorage.getItem(SUMMARIZE_MESSAGES_STORAGE_KEY) === 'true',
         similarMessages: false,
@@ -203,6 +250,12 @@ export default {
   },
 
   computed: {
+    userRole() {
+      return userStore.user?.role ?? 'UNBEKANNT';
+    },
+    displayName() {
+      return userStore.user?.displayName || 'Nicht verfügbar';
+    },
     roleBadgeClass() {
       const map = { STUDENT: 'role-student', EMPLOYEE: 'role-employee', ADMIN: 'role-admin' };
       return map[this.userRole] ?? 'role-default';
@@ -211,9 +264,23 @@ export default {
       const subscribedIds = new Set(this.subscribedTags.map(t => t.id));
       return this.allTags.filter(t => !subscribedIds.has(t.id));
     },
+    profileRows() {
+      const p = this.profile;
+      if (!p) return [];
+      return [
+        { label: 'Anzeigename', value: p.displayName, suffix: '' },
+        { label: 'E-Mail', value: p.email, suffix: '' },
+        { label: 'Rolle', value: p.role, suffix: '' },
+        { label: 'Studiengang', value: p.studyProgram, suffix: '' },
+        { label: 'Abschlussart', value: p.degree, suffix: '' },
+        { label: 'Studienbeginnjahr', value: p.studyStartYear, suffix: '' },
+        { label: 'Aktuelles Semester', value: p.currentSemester, suffix: '. Semester' },
+      ];
+    },
   },
 
   async mounted() {
+    this.loadProfile();
     await Promise.all([
       this.loadSubscriptions().catch(() => { this.subError = 'Abonnements konnten nicht geladen werden.'; }),
       this.loadAllTags(),
@@ -221,6 +288,32 @@ export default {
   },
 
   methods: {
+    async loadProfile() {
+      this.profileLoading = true;
+      this.profileError = null;
+      try {
+        this.profile = await getMyProfile();
+        userStore.updateFromProfile(this.profile);
+      } catch (err) {
+        this.profile = null;
+        this.profileError =
+          err?.response?.status === 401
+            ? 'Nicht angemeldet – bitte erneut einloggen.'
+            : 'Profil konnte nicht geladen werden.';
+      } finally {
+        this.profileLoading = false;
+      }
+    },
+
+    isMissing(value) {
+      return value === null || value === undefined || value === '';
+    },
+
+    formatProfileValue(row) {
+      if (this.isMissing(row.value)) return 'Nicht verfügbar';
+      return row.suffix ? `${row.value}${row.suffix}` : String(row.value);
+    },
+
     async loadAllTags() {
       try { this.allTags = await getTags(); } catch (e) { /* tags unavailable */ }
     },
@@ -228,6 +321,20 @@ export default {
     toggleMessageSummaries() {
       this.messageAgent.summarize = !this.messageAgent.summarize;
       localStorage.setItem(SUMMARIZE_MESSAGES_STORAGE_KEY, String(this.messageAgent.summarize));
+    },
+
+    toggleAutoTagging() {
+      this.publishAgent.autoTagging = !this.publishAgent.autoTagging;
+      setAutoTaggingEnabled(this.publishAgent.autoTagging);
+    },
+
+    hasSubscriberCount(tag) {
+      return typeof tag?.subscriberCount === 'number';
+    },
+
+    subscriberLabel(count) {
+      const value = Number(count) || 0;
+      return `${value} Sub${value === 1 ? '' : 's'}`;
     },
 
     async addSub() {

@@ -118,7 +118,7 @@ ${message.body}
 `;
 
   const response = await ollama.chat({
-    model: "llama3",
+    model: process.env.OLLAMA_MODEL || "llama3",
     messages: [
       {
         role: "user",

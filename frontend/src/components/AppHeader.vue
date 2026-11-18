@@ -48,7 +48,12 @@
       <button class="btn settings-btn" @click="$router.push('/settings')" title="Einstellungen">
         ⚙️
       </button>
-      
+
+      <div class="user-chip">
+        <span class="user-avatar">{{ userInitial }}</span>
+        <span class="user-name">{{ displayName }}</span>
+      </div>
+
       <button class="btn logout-btn" @click="logout">Logout</button>
     </div>
   </header>
@@ -56,6 +61,7 @@
 
 <script>
 import { notificationStore } from '../store/notifications';
+import { userStore } from '../store/user';
 
 export default {
   name: "AppHeader",
@@ -66,6 +72,12 @@ export default {
     }
   },
   computed: {
+    displayName() {
+      return userStore.user?.displayName || 'Nicht verfügbar';
+    },
+    userInitial() {
+      return userStore.user?.displayName?.charAt(0).toUpperCase() || '?';
+    },
     newNotifications() {
       return notificationStore.newSubscribed;
     },
@@ -91,7 +103,7 @@ export default {
       notificationStore.removeNotification(id);
     },
     logout() {
-      sessionStorage.removeItem("user");
+      userStore.clear();
       sessionStorage.removeItem("token"); 
       this.$router.push("/");
     }

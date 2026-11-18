@@ -80,6 +80,8 @@
 
 <script>
 import api from '../services/api';
+import { userStore } from '../store/user';
+import { getMyProfile } from '../services/profileService';
 
 export default {
   name: 'LandingView',
@@ -133,8 +135,15 @@ export default {
         
         const { token, user } = response.data;
         sessionStorage.setItem('token', token);
-        sessionStorage.setItem('user', JSON.stringify(user));
-        
+        userStore.setUser(user);
+
+        try {
+          const profile = await getMyProfile();
+          userStore.updateFromProfile(profile);
+        } catch {
+          // Profil-Fehler darf den Login nicht blockieren.
+        }
+
         // Nach erfolgreichem Login: Weiter zum Feed
         this.$router.push('/feed');
         
