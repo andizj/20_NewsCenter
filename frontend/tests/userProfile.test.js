@@ -170,7 +170,7 @@ test('publish suggestions and subscriber counts remain rendered after the sessio
   const html = await renderToString(createSSRApp({ ...publish, data() {
     return { ...publish.data(), form: { tagId: TAG.id, targetRole: 'ALL', title: 'Events', body: 'Events meetup information' },
       suggestions: [{ ...TAG, type: 'existing' }] };
-  } }, { availableTags: [TAG] }));
-  assert.ok(html.includes('Suggested tags'));
+  } }, { availableTags: [TAG], visible: true }));
+  assert.ok(html.includes('Passende Themenvorschläge'));
   assert.ok(html.includes('3 Subs'));
 });

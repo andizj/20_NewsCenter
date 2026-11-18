@@ -9,6 +9,10 @@
     </router-link>
 
     <div class="actions">
+      <button class="btn create-btn" type="button" @click="$emit('create-message')">
+        Neue Nachricht
+      </button>
+
       <div class="notification-wrapper">
         <button
           class="btn bell-btn"
@@ -65,7 +69,7 @@ import { userStore } from '../store/user';
 
 export default {
   name: "AppHeader",
-  emits: ["refresh", "mark-notification-read", "mark-notifications-read", "notification-selected"],
+  emits: ["refresh", "create-message", "mark-notification-read", "mark-notifications-read", "notification-selected"],
   data() {
     return {
       showDropdown: false

@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <AppHeader />
+    <AppHeader @create-message="openComposer" />
 
     <div class="settings-layout">
 
@@ -288,6 +288,10 @@ export default {
   },
 
   methods: {
+    openComposer() {
+      this.$router.push({ path: "/feed", query: { compose: "1" } });
+    },
+
     async loadProfile() {
       this.profileLoading = true;
       this.profileError = null;

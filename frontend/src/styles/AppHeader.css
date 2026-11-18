@@ -39,6 +39,13 @@
   cursor: pointer;
 }
 .btn:hover { background: rgba(255,255,255,0.08); }
+.create-btn {
+  border-color: #4b5a78;
+  background: rgba(120, 160, 255, 0.18);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.create-btn:hover { background: rgba(120, 160, 255, 0.25); }
 
 .logout-btn:hover {
   background: rgba(255, 80, 80, 0.15);
@@ -192,4 +199,9 @@
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 720px) {
+  .header { flex-wrap: wrap; }
+  .actions { flex-wrap: wrap; justify-content: flex-end; }
 }

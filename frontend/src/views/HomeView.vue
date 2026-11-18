@@ -2,6 +2,7 @@
   <div class="page">
     <AppHeader
       @refresh="refreshAll"
+      @create-message="showCreateModal = true"
       @mark-notification-read="onMessageMarkedRead"
       @mark-notifications-read="markSubscribedNewNotificationsRead"
       @notification-selected="goToNotificationMessage"
@@ -21,11 +22,13 @@
 
       <main class="main">
         <CreateMessageForm
+          :visible="showCreateModal"
           :loading="createLoading"
           :error="createError"
           :success="createSuccess"
           :availableTags="tags"
           @submit="onCreateMessage"
+          @close="onCreateModalClose"
         />
 
         <div class="feed-controls">
@@ -141,6 +144,7 @@ export default {
       createLoading: false,
       createError: null,
       createSuccess: null,
+      showCreateModal: false,
     };
   },
 
@@ -149,6 +153,12 @@ export default {
     await this.loadMessages();
     if (this.$route.query.message) {
       await this.goToNotificationMessage(this.$route.query.message);
+    }
+    if (this.$route.query.compose) {
+      this.showCreateModal = true;
+      const query = { ...this.$route.query };
+      delete query.compose;
+      this.$router.replace({ query });
     }
     this.newMessageRefreshTimer = setInterval(this.refreshMessageState, 60000);
     window.addEventListener("storage", this.onStorageChange);
@@ -451,9 +461,18 @@ export default {
       } finally {
         this.createLoading = false;
         if (this.createSuccess) {
-          setTimeout(() => (this.createSuccess = null), 3000);
+          setTimeout(() => {
+            this.createSuccess = null;
+            this.showCreateModal = false;
+          }, 1500);
         }
       }
+    },
+
+    onCreateModalClose() {
+      this.showCreateModal = false;
+      this.createError = null;
+      this.createSuccess = null;
     },
 
     onMessageMarkedRead(messageId) {

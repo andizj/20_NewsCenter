@@ -1,118 +1,127 @@
 <template>
-  <section class="panel">
-    <div class="panelHeader">
-      <div>
-        <div class="panelTitle">Veröffentlichen</div>
-        <div class="panelSub">Neue Nachricht erstellen</div>
-      </div>
-    </div>
-
-    <form class="form" @submit.prevent="submit">
-
-    <label class="label">
-        Thema
-        <select class="input" v-model="form.tagId" @change="onTopicChange" required>
-          <option value="" disabled>Thema auswählen…</option>
-          <option v-if="selectedNewTag" :value="newTagValue">
-            # {{ selectedNewTag }} (neuer Tag)
-          </option>
-          <option v-for="tag in availableTags" :key="tag.id" :value="tag.id">
-            # {{ tag.name }}
-          </option>
-        </select>
-      </label>
-
-      <label class="label">
-        Zielgruppe
-        <select class="input" v-model="form.targetRole" required>
-          <option value="ALL">Alle</option>
-          <option value="STUDENT">Studenten</option>
-          <option value="EMPLOYEE">Mitarbeiter</option>
-        </select>
-      </label>
-
-      <label class="label">
-        Titel
-        <input class="input" v-model.trim="form.title" placeholder="Titel…" required />
-      </label>
-
-      <label class="label">
-        Nachricht  
-        <textarea class="input textarea" v-model.trim="form.body" placeholder="Nachricht…" required></textarea>
-      </label>
-
-      <div v-if="showSuggestions" class="suggestions">
-        <div class="suggestionsHead">
-          <span class="suggestionsTitle">Passende Themenvorschläge</span>
-          <span v-if="suggestionsLoading" class="suggestionsMeta">Suche…</span>
+  <div v-if="visible" class="modal-overlay" @click.self="close">
+    <section
+      class="modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-message-title"
+    >
+      <div class="panelHeader">
+        <div>
+          <div id="create-message-title" class="panelTitle">Veröffentlichen</div>
+          <div class="panelSub">Neue Nachricht erstellen</div>
         </div>
 
-        <template v-if="suggestions.length">
-          <div v-if="existingSuggestions.length" class="suggestionGroup">
-            <span class="suggestionGroupLabel">Bestehende Themen</span>
-            <div class="suggestionList">
-              <button
-                v-for="tag in existingSuggestions"
-                :key="tag.id"
-                type="button"
-                class="suggestionChip"
-                :class="{ active: isSelectedSuggestion(tag) }"
-                :title="tag.reason"
-                @click="applySuggestion(tag)"
-              >
-                <span class="suggestionName"># {{ tag.name }}</span>
-                <span class="suggestionCount">· {{ subscriberLabel(tag.subscriberCount) }}</span>
-              </button>
+        <button class="close-btn" type="button" aria-label="Schließen" @click="close">×</button>
+      </div>
+
+      <form class="form" @submit.prevent="submit">
+
+      <label class="label">
+          Thema
+          <select class="input" v-model="form.tagId" @change="onTopicChange" required>
+            <option value="" disabled>Thema auswählen…</option>
+            <option v-if="selectedNewTag" :value="newTagValue">
+              # {{ selectedNewTag }} (neuer Tag)
+            </option>
+            <option v-for="tag in availableTags" :key="tag.id" :value="tag.id">
+              # {{ tag.name }}
+            </option>
+          </select>
+        </label>
+
+        <label class="label">
+          Zielgruppe
+          <select class="input" v-model="form.targetRole" required>
+            <option value="ALL">Alle</option>
+            <option value="STUDENT">Studenten</option>
+            <option value="EMPLOYEE">Mitarbeiter</option>
+          </select>
+        </label>
+
+        <label class="label">
+          Titel
+          <input ref="titleInput" class="input" v-model.trim="form.title" placeholder="Titel…" required />
+        </label>
+
+        <label class="label">
+          Nachricht  
+          <textarea class="input textarea" v-model.trim="form.body" placeholder="Nachricht…" required></textarea>
+        </label>
+
+        <div v-if="showSuggestions" class="suggestions">
+          <div class="suggestionsHead">
+            <span class="suggestionsTitle">Passende Themenvorschläge</span>
+            <span v-if="suggestionsLoading" class="suggestionsMeta">Suche…</span>
+          </div>
+
+          <template v-if="suggestions.length">
+            <div v-if="existingSuggestions.length" class="suggestionGroup">
+              <span class="suggestionGroupLabel">Bestehende Themen</span>
+              <div class="suggestionList">
+                <button
+                  v-for="tag in existingSuggestions"
+                  :key="tag.id"
+                  type="button"
+                  class="suggestionChip"
+                  :class="{ active: isSelectedSuggestion(tag) }"
+                  :title="tag.reason"
+                  @click="applySuggestion(tag)"
+                >
+                  <span class="suggestionName"># {{ tag.name }}</span>
+                  <span class="suggestionCount">· {{ subscriberLabel(tag.subscriberCount) }}</span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div v-if="newSuggestions.length" class="suggestionGroup">
-            <span class="suggestionGroupLabel">Neue Vorschläge</span>
-            <div class="suggestionList">
-              <button
-                v-for="tag in newSuggestions"
-                :key="'new-' + tag.name"
-                type="button"
-                class="suggestionChip isNew"
-                :class="{ active: isSelectedSuggestion(tag) }"
-                :title="tag.reason"
-                @click="applySuggestion(tag)"
-              >
-                <span class="suggestionName"># {{ tag.name }}</span>
-                <span class="suggestionCount">· Neuer Vorschlag</span>
-              </button>
+            <div v-if="newSuggestions.length" class="suggestionGroup">
+              <span class="suggestionGroupLabel">Neue Vorschläge</span>
+              <div class="suggestionList">
+                <button
+                  v-for="tag in newSuggestions"
+                  :key="'new-' + tag.name"
+                  type="button"
+                  class="suggestionChip isNew"
+                  :class="{ active: isSelectedSuggestion(tag) }"
+                  :title="tag.reason"
+                  @click="applySuggestion(tag)"
+                >
+                  <span class="suggestionName"># {{ tag.name }}</span>
+                  <span class="suggestionCount">· Neuer Vorschlag</span>
+                </button>
+              </div>
             </div>
+
+            <div class="suggestionsHint">
+              Klicke einen Vorschlag, um ihn als Thema zu verwenden – die manuelle Auswahl ist weiterhin möglich.
+            </div>
+          </template>
+
+          <div v-else-if="suggestionsLoading" class="suggestionsHint">
+            Suche passende Themen …
           </div>
 
-          <div class="suggestionsHint">
-            Klicke einen Vorschlag, um ihn als Thema zu verwenden – die manuelle Auswahl ist weiterhin möglich.
+          <div v-else-if="suggestionsSearched" class="suggestionsHint">
+            Keine passenden Themenvorschläge gefunden.
           </div>
-        </template>
-
-        <div v-else-if="suggestionsLoading" class="suggestionsHint">
-          Suche passende Themen …
         </div>
 
-        <div v-else-if="suggestionsSearched" class="suggestionsHint">
-          Keine passenden Themenvorschläge gefunden.
+        <div class="row">
+          <button class="btnPrimary" type="submit" :disabled="loading">
+            {{ loading ? "Veröffentliche…" : "Veröffentlichen" }}
+          </button>
+
+          <button class="btn" type="button" @click="reset" :disabled="loading">
+            Zurücksetzen
+          </button>
         </div>
-      </div>
 
-      <div class="row">
-        <button class="btnPrimary" type="submit" :disabled="loading">
-          {{ loading ? "Veröffentliche…" : "Veröffentlichen" }}
-        </button>
+        <div v-if="error" class="error">Erstellen fehlgeschlagen: {{ error }}</div>
+        <div v-if="success" class="success">{{ success }}</div>
 
-        <button class="btn" type="button" @click="reset" :disabled="loading">
-          Löschen
-        </button>
-      </div>
-
-      <div v-if="error" class="error">Erstellen fehlgeschlagen: {{ error }}</div>
-      <div v-if="success" class="success">{{ success }}</div>
-
-    </form>
-  </section>
+      </form>
+    </section>
+  </div>
 </template>
 
 <script>
@@ -128,12 +137,13 @@ const NEW_TAG_VALUE = "__new_tag__";
 export default {
   name: "CreateMessageForm",
   props: {
+    visible: { type: Boolean, default: false },
     loading: { type: Boolean, default: false },
     error: { type: String, default: null },
     success: { type: String, default: null },
     availableTags: { type: Array, default: () => []}
   },
-  emits: ["submit"],
+  emits: ["submit", "close"],
   data() {
     return {
       form: {
@@ -150,6 +160,7 @@ export default {
       suggestionsSearched: false,
       suggestionTimer: null,
       suggestionRequestId: 0,
+      modalBound: false,
     };
   },
   computed: {
@@ -172,12 +183,25 @@ export default {
   watch: {
     "form.title": "onDraftChanged",
     "form.body": "onDraftChanged",
+    visible: {
+      immediate: true,
+      handler(isOpen) {
+        if (isOpen) {
+          this.bindModal();
+          this.$nextTick(() => this.$refs.titleInput?.focus());
+        } else {
+          this.releaseModal();
+          this.reset();
+        }
+      },
+    },
   },
   mounted() {
     this.stopAutoTaggingListener = onAutoTaggingChange(this.onAutoTaggingChanged);
   },
   beforeUnmount() {
     this.cancelSuggestionRequest();
+    this.releaseModal();
     if (typeof this.stopAutoTaggingListener === "function") {
       this.stopAutoTaggingListener();
     }
@@ -190,6 +214,29 @@ export default {
       this.form.body = "";
       this.selectedNewTag = null;
       this.clearSuggestions();
+    },
+
+    close() {
+      if (this.loading) return;
+      this.$emit("close");
+    },
+
+    onEscape(event) {
+      if (event.key === "Escape") this.close();
+    },
+
+    bindModal() {
+      if (typeof document === "undefined" || this.modalBound) return;
+      this.modalBound = true;
+      document.body.style.overflow = "hidden";
+      document.addEventListener("keydown", this.onEscape);
+    },
+
+    releaseModal() {
+      if (typeof document === "undefined" || !this.modalBound) return;
+      this.modalBound = false;
+      document.body.style.overflow = "";
+      document.removeEventListener("keydown", this.onEscape);
     },
 
     submit() {
