@@ -1,0 +1,94 @@
+.
+├── LICENSE
+├── README.md
+├── backend
+│   ├── Dockerfile
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── src
+│   │   ├── db.js
+│   │   ├── index.js
+│   │   ├── middleware
+│   │   │   └── auth.js
+│   │   ├── repositories
+│   │   │   ├── messageRepository.js
+│   │   │   ├── tagRepository.js
+│   │   │   └── userRepository.js
+│   │   ├── routes
+│   │   │   ├── messages.js
+│   │   │   ├── tags.js
+│   │   │   └── users.js
+│   │   ├── services
+│   │   │   ├── authService.js
+│   │   │   ├── messageService.js
+│   │   │   ├── tagService.js
+│   │   │   └── userService.js
+│   │   └── utils
+│   │       ├── errorHandler.js
+│   │       └── validators.js
+│   ├── swagger.js
+│   └── tests
+│       ├── authService.test.js
+│       └── messageService.test.js
+├── db
+│   └── init
+│       ├── 01_schema.sql
+│       └── 02_seed.sql
+├── docker-compose.yml
+├── frontend
+│   ├── Dockerfile
+│   ├── README.md
+│   ├── babel.config.js
+│   ├── jsconfig.json
+│   ├── nginx.conf
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── public
+│   │   ├── favicon.ico
+│   │   └── index.html
+│   ├── src
+│   │   ├── App.vue
+│   │   ├── assets
+│   │   │   ├── logo.png
+│   │   │   └── logo2.png
+│   │   ├── components
+│   │   │   ├── AppFooter.vue
+│   │   │   ├── AppHeader.vue
+│   │   │   ├── CreateMessageForm.vue
+│   │   │   ├── MessageCard.vue
+│   │   │   ├── MessageList.vue
+│   │   │   ├── TagFilter.vue
+│   │   │   └── ToastContainer.vue
+│   │   ├── composables
+│   │   │   └── useSubscriptions.js
+│   │   ├── main.js
+│   │   ├── router.js
+│   │   ├── services
+│   │   │   ├── api.js
+│   │   │   ├── messagesService.js
+│   │   │   ├── sseService.js
+│   │   │   ├── subscriptionService.js
+│   │   │   └── tagsService.js
+│   │   ├── store
+│   │   │   └── notifications.js
+│   │   ├── styles
+│   │   │   ├── App.css
+│   │   │   ├── AppFooter.css
+│   │   │   ├── AppHeader.css
+│   │   │   ├── CreateMessageForm.css
+│   │   │   ├── HomeView.css
+│   │   │   ├── LandingView.css
+│   │   │   ├── MessageCard.css
+│   │   │   ├── MessageList.css
+│   │   │   ├── SettingsView.css
+│   │   │   ├── TagFilter.css
+│   │   │   └── ToastContainer.css
+│   │   └── views
+│   │       ├── HomeView.vue
+│   │       ├── LandingView.vue
+│   │       └── SettingsView.vue
+│   └── vue.config.js
+├── package-lock.json
+└── struktur.txt
+
+21 directories, 71 files

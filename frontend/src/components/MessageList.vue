@@ -2,9 +2,9 @@
   <section class="panel">
     <div class="panelHeader">
       <div>
-        <div class="panelTitle">Latest messages</div>
+        <div class="panelTitle">Aktuelle Nachrichten</div>
         <div class="panelSub">
-          Showing: <strong>{{ selectedTag ?? "All" }}</strong>
+          Anzeige: <strong>{{ selectedTag ?? "Alle" }}</strong>
         </div>
         <div class="panelReadFilters">
           <span>Status:</span>
@@ -30,8 +30,8 @@
       </button>
     </div>
 
-    <div v-if="loading" class="hint">Loading messages…</div>
-    <div v-else-if="error" class="error">Failed to load messages: {{ error }}</div>
+    <div v-if="loading" class="hint">Nachrichten werden geladen…</div>
+    <div v-else-if="error" class="error">Fehler beim Laden der Nachrichten: {{ error }}</div>
 
     <div v-else class="grid">
       <MessageCard
@@ -44,7 +44,7 @@
     </div>
 
     <div v-if="!loading && !error && messages.length === 0" class="hint">
-      No messages found.
+      Keine Nachrichten gefunden.
     </div>
   </section>
 </template>

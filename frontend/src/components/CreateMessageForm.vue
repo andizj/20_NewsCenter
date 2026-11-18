@@ -2,19 +2,19 @@
   <section class="panel">
     <div class="panelHeader">
       <div>
-        <div class="panelTitle">Publish</div>
-        <div class="panelSub">Create a new announcement</div>
+        <div class="panelTitle">Veröffentlichen</div>
+        <div class="panelSub">Neue Nachricht erstellen</div>
       </div>
     </div>
 
     <form class="form" @submit.prevent="submit">
 
     <label class="label">
-        Topic
+        Thema
         <select class="input" v-model="form.tagId" @change="onTopicChange" required>
-          <option value="" disabled>Select a topic...</option>
+          <option value="" disabled>Thema auswählen…</option>
           <option v-if="selectedNewTag" :value="newTagValue">
-            # {{ selectedNewTag }} (new tag)
+            # {{ selectedNewTag }} (neuer Tag)
           </option>
           <option v-for="tag in availableTags" :key="tag.id" :value="tag.id">
             # {{ tag.name }}
@@ -23,33 +23,33 @@
       </label>
 
       <label class="label">
-        Target Audience
+        Zielgruppe
         <select class="input" v-model="form.targetRole" required>
-          <option value="ALL">All</option>
-          <option value="STUDENT">Student</option>
-          <option value="EMPLOYEE">Employee</option>
+          <option value="ALL">Alle</option>
+          <option value="STUDENT">Studenten</option>
+          <option value="EMPLOYEE">Mitarbeiter</option>
         </select>
       </label>
 
       <label class="label">
-        Title
-        <input class="input" v-model.trim="form.title" placeholder="Short headline…" required />
+        Titel
+        <input class="input" v-model.trim="form.title" placeholder="Titel…" required />
       </label>
 
       <label class="label">
-        Body
-        <textarea class="input textarea" v-model.trim="form.body" placeholder="Write the message…" required></textarea>
+        Nachricht  
+        <textarea class="input textarea" v-model.trim="form.body" placeholder="Nachricht…" required></textarea>
       </label>
 
       <div v-if="showSuggestions" class="suggestions">
         <div class="suggestionsHead">
-          <span class="suggestionsTitle">Suggested tags</span>
-          <span v-if="suggestionsLoading" class="suggestionsMeta">Searching…</span>
+          <span class="suggestionsTitle">Passende Themenvorschläge</span>
+          <span v-if="suggestionsLoading" class="suggestionsMeta">Suche…</span>
         </div>
 
         <template v-if="suggestions.length">
           <div v-if="existingSuggestions.length" class="suggestionGroup">
-            <span class="suggestionGroupLabel">Existing</span>
+            <span class="suggestionGroupLabel">Bestehende Themen</span>
             <div class="suggestionList">
               <button
                 v-for="tag in existingSuggestions"
@@ -67,7 +67,7 @@
           </div>
 
           <div v-if="newSuggestions.length" class="suggestionGroup">
-            <span class="suggestionGroupLabel">New</span>
+            <span class="suggestionGroupLabel">Neue Vorschläge</span>
             <div class="suggestionList">
               <button
                 v-for="tag in newSuggestions"
@@ -79,36 +79,36 @@
                 @click="applySuggestion(tag)"
               >
                 <span class="suggestionName"># {{ tag.name }}</span>
-                <span class="suggestionCount">· new tag</span>
+                <span class="suggestionCount">· Neuer Vorschlag</span>
               </button>
             </div>
           </div>
 
           <div class="suggestionsHint">
-            Click a suggestion to use it as topic – manual selection still works.
+            Klicke einen Vorschlag, um ihn als Thema zu verwenden – die manuelle Auswahl ist weiterhin möglich.
           </div>
         </template>
 
         <div v-else-if="suggestionsLoading" class="suggestionsHint">
-          Looking for matching tags…
+          Suche passende Themen …
         </div>
 
         <div v-else-if="suggestionsSearched" class="suggestionsHint">
-          No suitable tag suggestions found.
+          Keine passenden Themenvorschläge gefunden.
         </div>
       </div>
 
       <div class="row">
         <button class="btnPrimary" type="submit" :disabled="loading">
-          {{ loading ? "Publishing…" : "Publish" }}
+          {{ loading ? "Veröffentliche…" : "Veröffentlichen" }}
         </button>
 
         <button class="btn" type="button" @click="reset" :disabled="loading">
-          Clear
+          Löschen
         </button>
       </div>
 
-      <div v-if="error" class="error">Create error: {{ error }}</div>
+      <div v-if="error" class="error">Erstellen fehlgeschlagen: {{ error }}</div>
       <div v-if="success" class="success">{{ success }}</div>
 
     </form>

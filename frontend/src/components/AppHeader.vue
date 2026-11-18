@@ -4,7 +4,7 @@
       <img src="@/assets/logo2.png" alt="NewsCenter Logo" class="logo" />
       <div>
         <div class="title">NewsCenter</div>
-        <div class="subtitle">Internal news & announcements</div>
+        <div class="subtitle">Interne Neuigkeiten & Ankündigungen</div>
       </div>
     </router-link>
 
