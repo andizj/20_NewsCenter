@@ -85,6 +85,42 @@ select.input {
   appearance: none;
   cursor: pointer;
 }
+select.input:disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* --- Ausgewählte Themen (max. 3) --- */
+.selectedTags { display: flex; flex-wrap: wrap; gap: 6px; }
+.selectedTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 10px;
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  background: rgba(120, 160, 255, 0.3);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+.selectedTag.isNew {
+  border-style: dashed;
+  border-color: var(--color-green);
+  background: rgba(66, 185, 131, 0.28);
+}
+.removeTag {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.removeTag:hover { color: var(--color-text); background: rgba(255, 255, 255, 0.12); }
+.removeTag:disabled { cursor: not-allowed; opacity: 0.5; }
+.suggestionChip:disabled { cursor: not-allowed; opacity: 0.45; }
+.suggestionChip:disabled:hover { background: var(--surface-btn); }
 
 /* --- Publish agent: tag suggestions --- */
 .suggestions {

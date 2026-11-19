@@ -23,20 +23,59 @@ async function createMessage({ authorId, targetRole, title, body }) {
   return messageRepository.create({ authorId, targetRole: finalTargetRole, title, body });
 }
 
+const MAX_TAGS_PER_MESSAGE = 3;
+const TAG_LIMIT_MESSAGE = `Eine Nachricht kann maximal ${MAX_TAGS_PER_MESSAGE} Themen haben.`;
+
+/** Throws 400 if adding `count` tags would exceed the per-message limit. */
+async function assertTagLimit(messageId, count) {
+  const existing = await messageRepository.countTags(messageId);
+  if (existing + count > MAX_TAGS_PER_MESSAGE) throw { status: 400, message: TAG_LIMIT_MESSAGE };
+}
+
+function mapTagInsertError(err) {
+  if (err.code === "23505") return { status: 409, message: "Message already has this tag" };
+  return err;
+}
+
 /**
  * Assigns a tag to an existing message.
- * Throws 400 if tagId is missing, 409 if the tag is already assigned.
+ * Throws 400 if tagId is missing or the message already has the maximum
+ * number of tags, 409 if the tag is already assigned.
  *
  * @param {string} messageId
  * @param {string} tagId
  */
 async function addTagToMessage(messageId, tagId) {
   if (!tagId) throw { status: 400, message: "tagId is required" };
+  await assertTagLimit(messageId, 1);
   try {
     return await messageRepository.addTag(messageId, tagId);
   } catch (err) {
-    if (err.code === "23505") throw { status: 409, message: "Message already has this tag" };
-    throw err;
+    throw mapTagInsertError(err);
+  }
+}
+
+/**
+ * Assigns up to MAX_TAGS_PER_MESSAGE tags to a message in one step.
+ * Duplicates in the list are ignored. Throws 400 for an empty/invalid list or
+ * when the limit would be exceeded, 409 if one of the tags is already assigned.
+ *
+ * @param {string} messageId
+ * @param {string[]} tagIds
+ */
+async function addTagsToMessage(messageId, tagIds) {
+  if (!Array.isArray(tagIds) || tagIds.some((id) => typeof id !== "string" || !id.trim())) {
+    throw { status: 400, message: "tagIds must be a list of tag ids" };
+  }
+  const uniqueIds = [...new Set(tagIds.map((id) => id.trim()))];
+  if (!uniqueIds.length) throw { status: 400, message: "tagIds is required" };
+  if (uniqueIds.length > MAX_TAGS_PER_MESSAGE) throw { status: 400, message: TAG_LIMIT_MESSAGE };
+
+  await assertTagLimit(messageId, uniqueIds.length);
+  try {
+    return await messageRepository.addTags(messageId, uniqueIds);
+  } catch (err) {
+    throw mapTagInsertError(err);
   }
 }
 
@@ -136,6 +175,8 @@ ${message.body}
 module.exports = {
   createMessage,
   addTagToMessage,
+  addTagsToMessage,
+  MAX_TAGS_PER_MESSAGE,
   getMessageForBroadcast,
   getMessages,
   searchMessages,

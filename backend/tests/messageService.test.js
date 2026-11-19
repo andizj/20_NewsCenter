@@ -1,7 +1,7 @@
 jest.mock('../src/repositories/messageRepository');
 
 const messageRepository = require('../src/repositories/messageRepository');
-const { createMessage, getMessageById } = require('../src/services/messageService');
+const { createMessage, getMessageById, addTagToMessage, addTagsToMessage } = require('../src/services/messageService');
 
 describe('messageService', () => {
 
@@ -34,6 +34,61 @@ describe('messageService', () => {
       expect(messageRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ targetRole: 'ALL' })
       );
+    });
+  });
+
+  describe('addTagsToMessage (max. 3 Themen)', () => {
+    test('weist bis zu 3 Themen in einem Schritt zu', async () => {
+      messageRepository.countTags.mockResolvedValue(0);
+      messageRepository.addTags.mockResolvedValue([{}, {}, {}]);
+
+      await addTagsToMessage('msg-1', ['t1', 't2', 't3']);
+      expect(messageRepository.addTags).toHaveBeenCalledWith('msg-1', ['t1', 't2', 't3']);
+    });
+
+    test('entfernt doppelte IDs vor dem Speichern', async () => {
+      messageRepository.countTags.mockResolvedValue(0);
+      messageRepository.addTags.mockResolvedValue([{}, {}]);
+
+      await addTagsToMessage('msg-1', ['t1', 't1', 't2']);
+      expect(messageRepository.addTags).toHaveBeenCalledWith('msg-1', ['t1', 't2']);
+    });
+
+    test('lehnt mehr als 3 Themen ab', async () => {
+      await expect(addTagsToMessage('msg-1', ['t1', 't2', 't3', 't4']))
+        .rejects.toMatchObject({ status: 400 });
+      expect(messageRepository.addTags).not.toHaveBeenCalled();
+    });
+
+    test('lehnt ab, wenn zusammen mit bestehenden Themen mehr als 3 entstehen', async () => {
+      messageRepository.countTags.mockResolvedValue(2);
+
+      await expect(addTagsToMessage('msg-1', ['t3', 't4']))
+        .rejects.toMatchObject({ status: 400 });
+      expect(messageRepository.addTags).not.toHaveBeenCalled();
+    });
+
+    test.each([
+      ['leere Liste', []],
+      ['keine Liste', 't1'],
+      ['leere ID', ['t1', '']],
+      ['keine Zeichenkette', [42]],
+    ])('lehnt %s ab', async (_label, input) => {
+      await expect(addTagsToMessage('msg-1', input)).rejects.toMatchObject({ status: 400 });
+    });
+
+    test('meldet 409, wenn ein Thema schon zugewiesen ist', async () => {
+      messageRepository.countTags.mockResolvedValue(0);
+      messageRepository.addTags.mockRejectedValue({ code: '23505' });
+
+      await expect(addTagsToMessage('msg-1', ['t1'])).rejects.toMatchObject({ status: 409 });
+    });
+
+    test('auch die Einzelzuweisung respektiert das Limit', async () => {
+      messageRepository.countTags.mockResolvedValue(3);
+
+      await expect(addTagToMessage('msg-1', 't4')).rejects.toMatchObject({ status: 400 });
+      expect(messageRepository.addTag).not.toHaveBeenCalled();
     });
   });
 

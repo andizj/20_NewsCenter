@@ -427,14 +427,20 @@ export default {
       this.createSuccess = null;
 
       try {
-        // Ein neu vorgeschlagener Tag wird ZUERST angelegt (bzw. wiederverwendet),
-        // damit keine Nachricht ohne gültigen Tag veröffentlicht wird.
-        const tagId = payload.newTagName
-          ? await ensureTag(payload.newTagName)
-          : payload.tagId;
-
-        if (!payload.title || !payload.body || !tagId || !payload.targetRole) {
+        if (!payload.title || !payload.body || !payload.targetRole) {
           throw new Error("Bitte Titel, Text, Thema und Zielgruppe wählen.");
+        }
+
+        // Neu vorgeschlagene Tags werden ZUERST angelegt (bzw. wiederverwendet),
+        // damit keine Nachricht ohne gültige Tags veröffentlicht wird.
+        const newTagIds = await Promise.all((payload.newTagNames || []).map((name) => ensureTag(name)));
+        const tagIds = [...new Set([...(payload.tagIds || []), ...newTagIds].filter(Boolean))];
+
+        if (!tagIds.length) {
+          throw new Error("Bitte mindestens ein Thema wählen.");
+        }
+        if (tagIds.length > 3) {
+          throw new Error("Es können maximal 3 Themen ausgewählt werden.");
         }
 
         const msgResponse = await api.post('/messages', {
@@ -445,13 +451,15 @@ export default {
         
         const newMessageId = msgResponse.data.id;
 
+        // Alle Themen in EINEM Aufruf zuweisen → nur ein Live-Event (SSE) pro Nachricht.
         await api.post(`/messages/${newMessageId}/tags`, {
-          tagId
+          tagIds
         });
 
         this.markMessageUnread(newMessageId);
 
         this.createSuccess = "Nachricht erfolgreich veröffentlicht!";
+        this.showCreateModal = false;
         
         // Feed und Tag-Liste neu laden (ggf. wurde ein neuer Tag erstellt)
         await Promise.all([this.loadMessages(), this.loadTags(true)]);
@@ -460,12 +468,6 @@ export default {
         this.createError = e?.response?.data?.error || e?.message || String(e);
       } finally {
         this.createLoading = false;
-        if (this.createSuccess) {
-          setTimeout(() => {
-            this.createSuccess = null;
-            this.showCreateModal = false;
-          }, 1500);
-        }
       }
     },
 

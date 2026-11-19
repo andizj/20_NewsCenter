@@ -430,8 +430,8 @@ function setupSwagger(app, { port, apiPrefix }) {
       "/messages/{id}/tags": {
         post: {
           tags: ["Messages"],
-          summary: "Tag einer Nachricht zuweisen (Auth required)",
-          description: "Weist der Nachricht einen Tag zu. Löst danach einen SSE-Broadcast an alle verbundenen Clients aus.",
+          summary: "Themen einer Nachricht zuweisen (Auth required)",
+          description: "Weist der Nachricht bis zu 3 Tags zu – als Liste (`tagIds`) oder einzeln (`tagId`). Eine Nachricht kann insgesamt maximal 3 Tags haben. Löst danach genau einen SSE-Broadcast an alle verbundenen Clients aus.",
           security: [{ BearerAuth: [] }],
           parameters: [
             { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" }, description: "Message-ID" },
@@ -440,14 +440,20 @@ function setupSwagger(app, { port, apiPrefix }) {
             required: true,
             content: {
               "application/json": {
-                schema: { type: "object", required: ["tagId"], properties: { tagId: { type: "string", format: "uuid" } } },
-                example: { tagId: "uuid-of-tag" },
+                schema: {
+                  type: "object",
+                  properties: {
+                    tagIds: { type: "array", minItems: 1, maxItems: 3, items: { type: "string", format: "uuid" } },
+                    tagId: { type: "string", format: "uuid", description: "Einzelner Tag (Alternative zu tagIds)" },
+                  },
+                },
+                example: { tagIds: ["uuid-of-tag-1", "uuid-of-tag-2"] },
               },
             },
           },
           responses: {
-            201: { description: "Tag erfolgreich zugewiesen" },
-            400: { description: "tagId fehlt" },
+            201: { description: "Tags erfolgreich zugewiesen" },
+            400: { description: "tagId/tagIds fehlt oder mehr als 3 Themen" },
             401: { description: "Nicht authentifiziert" },
             409: { description: "Nachricht hat diesen Tag bereits" },
           },

@@ -40,10 +40,15 @@ module.exports = (broadcaster) => {
     }
   });
 
-  /** POST /messages/:id/tags – Assign a tag to a message (auth required) */
+  /**
+   * POST /messages/:id/tags – Assign tags to a message (auth required).
+   * Body: { tagIds: [...] } (max. 3) or legacy { tagId }. One SSE broadcast per call.
+   */
   router.post("/:id/tags", auth, async (req, res) => {
     try {
-      const result = await messageService.addTagToMessage(req.params.id, req.body.tagId);
+      const result = req.body?.tagIds !== undefined
+        ? await messageService.addTagsToMessage(req.params.id, req.body.tagIds)
+        : await messageService.addTagToMessage(req.params.id, req.body?.tagId);
       
       if (typeof broadcaster === "function") {
         const fullMessage = await messageService.getMessageForBroadcast(req.params.id);

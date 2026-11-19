@@ -17,18 +17,44 @@
 
       <form class="form" @submit.prevent="submit">
 
-      <label class="label">
-          Thema
-          <select class="input" v-model="form.tagId" @change="onTopicChange" required>
-            <option value="" disabled>Thema auswählen…</option>
-            <option v-if="selectedNewTag" :value="newTagValue">
-              # {{ selectedNewTag }} (neuer Tag)
+      <div class="label">
+          <span>Themen ({{ selectedTags.length }}/{{ maxTags }})</span>
+
+          <div v-if="selectedTags.length" class="selectedTags">
+            <span
+              v-for="tag in selectedTags"
+              :key="tagKey(tag)"
+              class="selectedTag"
+              :class="{ isNew: tag.isNew }"
+            >
+              # {{ tag.name }}<template v-if="tag.isNew"> (neu)</template>
+              <button
+                type="button"
+                class="removeTag"
+                :aria-label="`Thema ${tag.name} entfernen`"
+                :disabled="loading"
+                @click="removeTag(tag)"
+              >×</button>
+            </span>
+          </div>
+
+          <select
+            class="input"
+            v-model="topicPick"
+            :disabled="isTagLimitReached || !selectableTags.length"
+            aria-label="Thema hinzufügen"
+            @change="onTopicPick"
+          >
+            <option value="" disabled>
+              {{ isTagLimitReached ? `Maximal ${maxTags} Themen ausgewählt` : "Thema hinzufügen…" }}
             </option>
-            <option v-for="tag in availableTags" :key="tag.id" :value="tag.id">
+            <option v-for="tag in selectableTags" :key="tag.id" :value="tag.id">
               # {{ tag.name }}
             </option>
           </select>
-        </label>
+
+          <span v-if="topicError" class="error">{{ topicError }}</span>
+        </div>
 
         <label class="label">
           Zielgruppe
@@ -66,6 +92,7 @@
                   class="suggestionChip"
                   :class="{ active: isSelectedSuggestion(tag) }"
                   :title="tag.reason"
+                  :disabled="isSuggestionDisabled(tag)"
                   @click="applySuggestion(tag)"
                 >
                   <span class="suggestionName"># {{ tag.name }}</span>
@@ -84,6 +111,7 @@
                   class="suggestionChip isNew"
                   :class="{ active: isSelectedSuggestion(tag) }"
                   :title="tag.reason"
+                  :disabled="isSuggestionDisabled(tag)"
                   @click="applySuggestion(tag)"
                 >
                   <span class="suggestionName"># {{ tag.name }}</span>
@@ -93,7 +121,7 @@
             </div>
 
             <div class="suggestionsHint">
-              Klicke einen Vorschlag, um ihn als Thema zu verwenden – die manuelle Auswahl ist weiterhin möglich.
+              Klicke Vorschläge an, um sie als Thema hinzuzufügen oder wieder zu entfernen (max. {{ maxTags }}) – die manuelle Auswahl ist weiterhin möglich.
             </div>
           </template>
 
@@ -131,8 +159,8 @@ import { isAutoTaggingEnabled, onAutoTaggingChange } from "../services/agentSett
 const SUGGESTION_DEBOUNCE_MS = 600;
 const MIN_TITLE_LENGTH = 3;
 const MIN_BODY_LENGTH = 10;
-// Placeholder value for the topic <select> while a NEW suggestion is selected.
-const NEW_TAG_VALUE = "__new_tag__";
+// Muss zum Backend-Limit passen (messageService.MAX_TAGS_PER_MESSAGE).
+const MAX_TAGS = 3;
 
 export default {
   name: "CreateMessageForm",
@@ -147,14 +175,16 @@ export default {
   data() {
     return {
       form: {
-        tagId: "",
         targetRole: "ALL",
         title: "",
         body: "",
       },
+      // Ausgewählte Themen: { id, name, isNew } – neue Vorschläge haben id = null.
+      selectedTags: [],
+      topicPick: "",
+      topicError: null,
+      maxTags: MAX_TAGS,
       autoTagging: isAutoTaggingEnabled(),
-      newTagValue: NEW_TAG_VALUE,
-      selectedNewTag: null,
       suggestions: [],
       suggestionsLoading: false,
       suggestionsSearched: false,
@@ -178,6 +208,13 @@ export default {
     },
     newSuggestions() {
       return this.suggestions.filter((tag) => tag.type === "new");
+    },
+    isTagLimitReached() {
+      return this.selectedTags.length >= MAX_TAGS;
+    },
+    // Bereits gewählte Themen nicht noch einmal im Dropdown anbieten.
+    selectableTags() {
+      return this.availableTags.filter((tag) => !this.findSelected(tag));
     },
   },
   watch: {
@@ -208,11 +245,12 @@ export default {
   },
   methods: {
     reset() {
-      this.form.tagId = "";
       this.form.targetRole = "ALL";
       this.form.title = "";
       this.form.body = "";
-      this.selectedNewTag = null;
+      this.selectedTags = [];
+      this.topicPick = "";
+      this.topicError = null;
       this.clearSuggestions();
     },
 
@@ -240,13 +278,54 @@ export default {
     },
 
     submit() {
-      const isNewTag = this.selectedNewTag && this.form.tagId === NEW_TAG_VALUE;
-      // Sendet title, body, Zielgruppe und Topic ans Eltern-Element (HomeView)
+      if (!this.selectedTags.length) {
+        this.topicError = "Bitte mindestens ein Thema auswählen.";
+        return;
+      }
+      // Sendet title, body, Zielgruppe und Themen ans Eltern-Element (HomeView)
       this.$emit("submit", {
         ...this.form,
-        tagId: isNewTag ? "" : this.form.tagId,
-        newTagName: isNewTag ? this.selectedNewTag : null,
+        tagIds: this.selectedTags.filter((tag) => !tag.isNew).map((tag) => tag.id),
+        newTagNames: this.selectedTags.filter((tag) => tag.isNew).map((tag) => tag.name),
       });
+    },
+
+    // --- Themen-Auswahl (max. MAX_TAGS) ---
+    tagKey(tag) {
+      return tag.isNew ? `new-${tag.name.toLowerCase()}` : tag.id;
+    },
+
+    // Ein Thema gilt als gewählt, wenn die ID passt – oder bei neuen Vorschlägen der Name.
+    findSelected(tag) {
+      const isNew = tag.type === "new" || tag.isNew;
+      return this.selectedTags.find((selected) =>
+        isNew
+          ? selected.isNew && selected.name.toLowerCase() === tag.name.toLowerCase()
+          : !selected.isNew && selected.id === tag.id
+      );
+    },
+
+    addTag(tag) {
+      if (this.findSelected(tag)) return;
+      if (this.isTagLimitReached) {
+        this.topicError = `Es können maximal ${MAX_TAGS} Themen ausgewählt werden.`;
+        return;
+      }
+      const isNew = tag.type === "new";
+      this.selectedTags.push({ id: isNew ? null : tag.id, name: tag.name, isNew });
+      this.topicError = null;
+    },
+
+    removeTag(tag) {
+      const selected = this.findSelected(tag);
+      this.selectedTags = this.selectedTags.filter((entry) => entry !== selected);
+      this.topicError = null;
+    },
+
+    onTopicPick() {
+      const tag = this.availableTags.find((entry) => entry.id === this.topicPick);
+      if (tag) this.addTag(tag);
+      this.topicPick = "";
     },
 
     // --- Publish agent: tag suggestions while typing (debounced) ---
@@ -319,29 +398,18 @@ export default {
       }
     },
 
+    // Vorschläge funktionieren als Umschalter: anklicken = hinzufügen/entfernen.
     applySuggestion(tag) {
-      if (tag.type === "new") {
-        this.selectedNewTag = tag.name;
-        this.form.tagId = NEW_TAG_VALUE;
-        return;
-      }
-
-      this.selectedNewTag = null;
-      this.form.tagId = tag.id;
-    },
-
-    // Manual topic selection stays consistent with the suggestions.
-    onTopicChange() {
-      if (this.form.tagId !== NEW_TAG_VALUE) {
-        this.selectedNewTag = null;
-      }
+      if (this.findSelected(tag)) this.removeTag(tag);
+      else this.addTag(tag);
     },
 
     isSelectedSuggestion(tag) {
-      if (tag.type === "new") {
-        return this.selectedNewTag === tag.name && this.form.tagId === NEW_TAG_VALUE;
-      }
-      return this.form.tagId === tag.id;
+      return Boolean(this.findSelected(tag));
+    },
+
+    isSuggestionDisabled(tag) {
+      return this.isTagLimitReached && !this.findSelected(tag);
     },
 
     subscriberLabel(count) {

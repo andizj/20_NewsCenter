@@ -38,6 +38,34 @@ async function create({ authorId, targetRole, title, body }) {
 }
 
 /**
+ * Links several tags to a message in one statement (all or nothing).
+ * Returns the join rows.
+ * @param {string} messageId
+ * @param {string[]} tagIds
+ */
+async function addTags(messageId, tagIds) {
+  const result = await pool.query(
+    `INSERT INTO message_tags (message_id, tag_id)
+     SELECT $1::uuid, tag_id FROM unnest($2::uuid[]) AS tag_id
+     RETURNING message_id AS "messageId", tag_id AS "tagId"`,
+    [messageId, tagIds]
+  );
+  return result.rows;
+}
+
+/**
+ * Returns how many tags are currently assigned to a message.
+ * @param {string} messageId
+ */
+async function countTags(messageId) {
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS count FROM message_tags WHERE message_id = $1::uuid`,
+    [messageId]
+  );
+  return result.rows[0]?.count ?? 0;
+}
+
+/**
  * Links a tag to a message. Returns the join row.
  * @param {string} messageId
  * @param {string} tagId
@@ -189,4 +217,4 @@ async function findByIdAdmin(id) {
   return result.rows[0] || null;
 }
 
-module.exports = { create, addTag, findFiltered, search, findById, findByIdAdmin };
+module.exports = { create, addTag, addTags, countTags, findFiltered, search, findById, findByIdAdmin };
