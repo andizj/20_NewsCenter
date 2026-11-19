@@ -395,13 +395,16 @@ npm run build   # Build erfolgreich
 
 ## 7. Offene Einschränkungen (bewusst dokumentiert)
 
-1. **Studiengang-Mapping nur teilweise bestätigt.**
-   Bestätigt und implementiert sind ausschließlich `if` → „Informatik" und
-   `b` → „Bachelor". Alle anderen Kürzel/Buchstaben liefern den Fallback
-   `"unbekannt"`. Die vollständige Mapping-Tabelle der FH Technikum Wien
-   (weitere Studiengänge, Master- und andere Abschlussbuchstaben) steht noch
-   aus und muss nachgetragen werden (`STUDY_PROGRAMS`/`DEGREES` in
-   `backend/src/utils/studentIdParser.js`).
+1. **Studiengang-Mapping aus JSON-Datei.**
+   Die Zuordnungen stehen in `backend/src/config/studyPrograms.json`
+   (Studiengangsliste der FH). Nachgeschlagen wird über den FH-Code aus
+   Abschlussbuchstabe + Studiengangskürzel, z. B. `if24b032` → `BIF` →
+   „Informatik/Computer Science“. Das Kürzel allein reicht nicht, weil es
+   doppelt vorkommt (`BSE` = Sports Engineering & Ergonomics, `MSE` =
+   Software Engineering). Abschlussnamen sind nur für `B` (Bachelor) und
+   `M` (Master) hinterlegt; für Lehrgänge (`L…`) und sonstige Codes (`E…`,
+   `H…`) wird der Name erkannt, der Abschluss bleibt `"unbekannt"`. Codes,
+   die nicht in der Datei stehen, liefern den Fallback `"unbekannt"`.
 
 2. **Master-Format unbestätigt.**
    Ob ein Masterabschluss über dieselbe Kennungsstruktur mit einem eigenen

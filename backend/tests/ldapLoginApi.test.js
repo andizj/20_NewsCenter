@@ -90,7 +90,7 @@ test('existing account: login and profile API expose the persisted LDAP name wit
   const profileResponse = await getProfile(login.token);
   expect(profileResponse.status).toBe(200);
   expect(await profileResponse.json()).toEqual({
-    ...login.user, studyProgram: 'Informatik', degree: 'Bachelor', studyStartYear: 2024,
+    ...login.user, studyProgram: 'Informatik/Computer Science', degree: 'Bachelor', studyStartYear: 2024,
     currentSemester: calculateSemester(2024),
   });
 });
@@ -103,7 +103,7 @@ test('new LDAP account stores the source name directly and still derives study i
   expect(login.user.displayName).toBe(DISPLAY_NAME);
   expect(row.display_name).toBe(DISPLAY_NAME);
   expect(row.student_id).toBe(USERNAME);
-  expect(row.study_program).toBe('Informatik');
+  expect(row.study_program).toBe('Informatik/Computer Science');
   expect(row.role).toBe('STUDENT');
 });
 

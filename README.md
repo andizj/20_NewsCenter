@@ -182,7 +182,7 @@ Sprint 3: LDAP Profiling & Identification Logic
 
 Known limitations (details in `documentation.md`):
 
-- Only the confirmed mappings `if` → "Informatik" and `b` → "Bachelor" are implemented; every other code falls back to "unbekannt" (full mapping table still outstanding).
+- Study programs come from `backend/src/config/studyPrograms.json` (FH program list, keyed by degree letter + program code, e.g. `if24b032` → `BIF`). Degree names exist only for `B` (Bachelor) and `M` (Master); anything not in the file falls back to "unbekannt".
 - The master degree format is not confirmed yet.
 - The current semester is computed from the start year (winter semester assumed, no interruptions) – it is a calculated value, not the actual enrolled semester.
 

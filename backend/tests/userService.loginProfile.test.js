@@ -60,7 +60,7 @@ describe('login – neue LDAP-Benutzer (Integration)', () => {
       passwordHash: expect.stringContaining(LDAP_HASH_MARKER),
       role: 'STUDENT',
       studentId: 'if24b032',
-      studyProgram: 'Informatik',
+      studyProgram: 'Informatik/Computer Science',
       degree: 'Bachelor',
       studyStartYear: 2024,
     });
@@ -83,12 +83,12 @@ describe('login – neue LDAP-Benutzer (Integration)', () => {
   });
 
   test('unbekannter Abschlussbuchstabe nutzt den Unknown-Fallback', async () => {
-    await login({ email: 'if24m032', password: 'secret' });
+    await login({ email: 'if24x032', password: 'secret' });
 
     expect(userRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        studentId: 'if24m032',
-        studyProgram: 'Informatik',
+        studentId: 'if24x032',
+        studyProgram: 'unbekannt',
         degree: 'unbekannt',
         studyStartYear: 2024,
       })
@@ -128,7 +128,7 @@ describe('login – bestehende LDAP-Benutzer (Integration)', () => {
 
     expect(userRepository.updateProfile).toHaveBeenCalledWith('u-ldap', {
       studentId: 'if22b001',
-      studyProgram: 'Informatik',
+      studyProgram: 'Informatik/Computer Science',
       degree: 'Bachelor',
       studyStartYear: 2022,
     });

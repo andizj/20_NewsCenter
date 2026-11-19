@@ -7,18 +7,21 @@
  * Reine Funktion – keine Abhängigkeit von LDAP, Auth, JWT oder Datenbank.
  */
 
+const { studyPrograms: STUDY_PROGRAMS, degrees: DEGREES } = require("../config/studyPrograms.json");
+
 const STUDENT_ID_REGEX = /^[a-zA-Z]{2}\d{2}[a-zA-Z]\d{3}$/;
 
-// Ausschließlich bestätigte Zuordnungen. Alles andere → "unbekannt".
-const STUDY_PROGRAMS = {
-  if: "Informatik",
-};
-
-const DEGREES = {
-  b: "Bachelor",
-};
-
+// Zuordnungen stammen aus config/studyPrograms.json (Studiengangsliste der FH).
+// Schlüssel ist der FH-Code aus Abschlussbuchstabe + Studiengangskürzel,
+// z.B. if24b032 → "BIF". Das Kürzel allein ist nicht eindeutig
+// (BSE = Sports Engineering & Ergonomics, MSE = Software Engineering).
+// Alles, was nicht in der Datei steht → "unbekannt".
 const UNKNOWN = "unbekannt";
+
+/** Eigene Einträge nachschlagen (kein Treffer über Object.prototype, z.B. "constructor"). */
+function lookup(table, key) {
+  return Object.prototype.hasOwnProperty.call(table, key) ? table[key] : UNKNOWN;
+}
 
 /**
  * Werte ein Studierendenkennung aus und leitet Profilinformationen ab.
@@ -41,15 +44,16 @@ function parseStudentId(rawId) {
   const yearPart = studentId.slice(2, 4);
   const degreeCode = studentId.slice(4, 5);
   const number = studentId.slice(5, 8);
+  const programKey = `${degreeCode}${studyProgramCode}`.toUpperCase();
 
   return {
     valid: true,
     studentId,
     studyProgramCode,
-    studyProgram: STUDY_PROGRAMS[studyProgramCode] || UNKNOWN,
+    studyProgram: lookup(STUDY_PROGRAMS, programKey),
     studyStartYear: 2000 + Number(yearPart),
     degreeCode,
-    degree: DEGREES[degreeCode] || UNKNOWN,
+    degree: lookup(DEGREES, degreeCode.toUpperCase()),
     number,
   };
 }

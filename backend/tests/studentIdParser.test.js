@@ -10,7 +10,7 @@ describe('studentIdParser', () => {
         valid: true,
         studentId: 'if24b032',
         studyProgramCode: 'if',
-        studyProgram: 'Informatik',
+        studyProgram: 'Informatik/Computer Science',
         studyStartYear: 2024,
         degreeCode: 'b',
         degree: 'Bachelor',
@@ -22,7 +22,7 @@ describe('studentIdParser', () => {
       expect(parseStudentId('IF24B032')).toMatchObject({
         valid: true,
         studentId: 'if24b032',
-        studyProgram: 'Informatik',
+        studyProgram: 'Informatik/Computer Science',
         degree: 'Bachelor',
       });
 
@@ -48,12 +48,39 @@ describe('studentIdParser', () => {
     });
 
     test('liefert bei unbekanntem Abschlussbuchstaben degree=unbekannt', () => {
-      const result = parseStudentId('if24m032');
+      const result = parseStudentId('if24x032');
 
       expect(result.valid).toBe(true);
-      expect(result.degreeCode).toBe('m');
+      expect(result.degreeCode).toBe('x');
       expect(result.degree).toBe('unbekannt');
-      expect(result.studyProgram).toBe('Informatik');
+      expect(result.studyProgram).toBe('unbekannt');
+    });
+
+    test.each([
+      ['wi24b001', 'Wirtschaftsinformatik', 'Bachelor'],
+      ['wi24m001', 'Wirtschaftsinformatik', 'Master'],
+      ['cs23m010', 'IT-Security', 'Master'],
+      ['el25b100', 'Elektronik', 'Bachelor'],
+    ])('erkennt %s als %s (%s)', (id, program, degree) => {
+      expect(parseStudentId(id)).toMatchObject({ studyProgram: program, degree });
+    });
+
+    test('unterscheidet gleiche Kürzel nach Abschluss (BSE vs. MSE)', () => {
+      expect(parseStudentId('se24b001').studyProgram).toBe('Sports Engineering & Ergonomics');
+      expect(parseStudentId('se24m001').studyProgram).toBe('Software Engineering');
+    });
+
+    test('liefert unbekannt für Kombinationen, die es nicht gibt', () => {
+      // "if" existiert nur als Bachelor (BIF), nicht als Master
+      expect(parseStudentId('if24m032')).toMatchObject({ studyProgram: 'unbekannt', degree: 'Master' });
+    });
+
+    test('liefert für Lehrgänge den Namen, aber keinen Abschluss', () => {
+      expect(parseStudentId('pw24l001')).toMatchObject({ studyProgram: 'Web-Development', degree: 'unbekannt' });
+    });
+
+    test('fällt nicht auf Object.prototype-Schlüssel herein', () => {
+      expect(parseStudentId('to24b001').studyProgram).toBe('unbekannt');
     });
   });
 
