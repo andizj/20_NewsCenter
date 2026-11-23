@@ -8,8 +8,8 @@
     >
       <div class="panelHeader">
         <div>
-          <div id="create-message-title" class="panelTitle">Veröffentlichen</div>
-          <div class="panelSub">Neue Nachricht erstellen</div>
+          <div id="create-message-title" class="panelTitle">Nachricht erstellen</div>
+          <div class="panelSub">Erstelle eine neue Ankündigung für das NewsCenter</div>
         </div>
 
         <button class="close-btn" type="button" aria-label="Schließen" @click="close">×</button>
