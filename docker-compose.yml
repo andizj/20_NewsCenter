@@ -30,8 +30,9 @@ services:
       - JWT_SECRET=super_secret_jwt_key_123
       - LDAP_URL=ldap://ldap.technikum-wien.at
       - LDAP_BASE_DN=ou=people,dc=technikum-wien,dc=at
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
-      # Erlaubte CORS-Origins (kommasepariert). Im Prod durch echte Domain ersetzen.
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_MODEL=${LLM_MODEL:-llama3.2:3b}
       - ALLOWED_ORIGIN=http://localhost:8081
     volumes:
       - ./backend/src:/app/src # Live-Reload: Änderungen werden sofort übernommen

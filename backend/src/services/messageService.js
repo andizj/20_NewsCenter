@@ -1,20 +1,11 @@
 const axios = require("axios");
-const { Ollama } = require("ollama");
-const ollama = new Ollama({
-  host: "http://host.docker.internal:11434",
-});
+const llmService = require("./llmService");
 const messageRepository = require("../repositories/messageRepository");
 
 const ALLOWED_TARGET_ROLES = ["ALL", "STUDENT", "EMPLOYEE"];
 const THESAURUS_API = "https://www.openthesaurus.de/synonyme/search";
 
-/**
- * Creates a new message and returns it.
- * Broadcasting to SSE clients happens AFTER the tag is assigned (in the route layer),
- * so the full message including tags is available at that point.
- *
- * @param {{ authorId: string, targetRole: string, title: string, body: string }} payload
- */
+
 async function createMessage({ authorId, targetRole, title, body }) {
   if (!title || !body)
     throw { status: 400, message: "Bitte Titel und Text angeben." };
@@ -37,14 +28,6 @@ function mapTagInsertError(err) {
   return err;
 }
 
-/**
- * Assigns a tag to an existing message.
- * Throws 400 if tagId is missing or the message already has the maximum
- * number of tags, 409 if the tag is already assigned.
- *
- * @param {string} messageId
- * @param {string} tagId
- */
 async function addTagToMessage(messageId, tagId) {
   if (!tagId) throw { status: 400, message: "tagId is required" };
   await assertTagLimit(messageId, 1);
@@ -55,14 +38,6 @@ async function addTagToMessage(messageId, tagId) {
   }
 }
 
-/**
- * Assigns up to MAX_TAGS_PER_MESSAGE tags to a message in one step.
- * Duplicates in the list are ignored. Throws 400 for an empty/invalid list or
- * when the limit would be exceeded, 409 if one of the tags is already assigned.
- *
- * @param {string} messageId
- * @param {string[]} tagIds
- */
 async function addTagsToMessage(messageId, tagIds) {
   if (!Array.isArray(tagIds) || tagIds.some((id) => typeof id !== "string" || !id.trim())) {
     throw { status: 400, message: "tagIds must be a list of tag ids" };
@@ -83,21 +58,10 @@ async function getMessageForBroadcast(id) {
   return messageRepository.findByIdAdmin(id);
 }
 
-/**
- * Returns the message feed for a user, optionally filtered by tag.
- *
- * @param {{ userRole: string, userId: string, tag?: string, filter?: string }} param0
- */
 async function getMessages({ userRole, userId, tag, filter }) {
   return messageRepository.findFiltered({ userRole, userId, tag, filter });
 }
 
-/**
- * Searches messages by a query term, expanding it with synonyms from the
- * openthesaurus.de API. Falls back to the raw term if the API is unavailable.
- *
- * @param {{ query: string, userRole: string }} param0
- */
 async function searchMessages({ query, userRole }) {
   if (!query) throw { status: 400, message: "Search query is required" };
 
@@ -156,19 +120,9 @@ Nachricht:
 ${message.body}
 `;
 
-  const response = await ollama.chat({
-    model: process.env.OLLAMA_MODEL || "llama3",
-    messages: [
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-  });
+  const summary = await llmService.generateText(prompt);
 
-  return {
-    summary: response.message.content,
-  };
+  return { summary };
 }
 
 

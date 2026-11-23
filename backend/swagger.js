@@ -463,7 +463,7 @@ function setupSwagger(app, { port, apiPrefix }) {
         post: {
           tags: ["Messages"],
           summary: "KI-Zusammenfassung einer Nachricht generieren (Auth required)",
-          description: "Generiert eine kurze KI-Zusammenfassung (max. 3 Sätze) der Nachricht via Ollama. Das Modell wird über OLLAMA_MODEL konfiguriert (Default: llama3). Nur sichtbar für die Rolle des eingeloggten Users.",
+          description: "Generiert eine kurze KI-Zusammenfassung (max. 3 Sätze) der Nachricht über eine OpenAI-kompatible LLM-API (z.B. Ollama, OpenAI, Anthropic, Mistral). Anbieter, API-Key und Modell werden über LLM_BASE_URL, LLM_API_KEY und LLM_MODEL konfiguriert. Nur sichtbar für die Rolle des eingeloggten Users.",
           security: [{ BearerAuth: [] }],
           parameters: [
             { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
@@ -482,6 +482,7 @@ function setupSwagger(app, { port, apiPrefix }) {
             },
             401: { description: "Nicht authentifiziert" },
             404: { description: "Nachricht nicht gefunden" },
+            503: { description: "KI-Dienst nicht erreichbar, API-Key ungültig, Modell nicht gefunden oder Timeout" },
           },
         },
       },

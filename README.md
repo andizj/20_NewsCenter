@@ -20,7 +20,7 @@ The project has three main parts:
 - Notification bell for unread messages
 - Message search with OpenThesaurus synonym expansion
 - Server-Sent Events for live feed updates
-- Optional AI-generated message summaries using Ollama and `llama3`
+- Optional AI-generated message summaries via any OpenAI-compatible LLM (local Ollama by default)
 - Swagger API documentation
 
 ## Work in Progress
@@ -51,7 +51,7 @@ Before running any `docker` command, start Docker Desktop and wait until it says
 
 Optional:
 
-- Ollama, only needed for AI message summaries
+- An LLM provider (local Ollama or an API key for a cloud provider), only needed for AI message summaries
 - A PostgreSQL client for optional manual database inspection
 
 You do not need to install Vue CLI globally. The frontend uses the local Vue CLI dependency from `frontend/package.json`.
@@ -206,7 +206,8 @@ These commands are not required to run the project with Docker Compose. Use them
 | File | Covered functions |
 |---|---|
 | `tests/authService.test.js` | `hashPassword`, `comparePassword`, `generateToken` |
-| `tests/messageService.test.js` | `createMessage` (validation, role fallback), `getMessageById` (found / 404) |
+| `tests/messageService.test.js` | `createMessage` (validation, role fallback), `getMessageById` (found / 404), `summarizeMessage` (404, prompt to LLM, error pass-through) |
+| `tests/llmService.test.js` | provider-agnostic LLM call: config defaults, URL/API key/model, error mapping to 503 (auth, model, rate limit, timeout), API key never logged |
 | `tests/studentIdParser.test.js` | `parseStudentId` (valid IDs, unknown codes, invalid formats) |
 | `tests/semester.test.js` | `calculateSemester` (winter/summer semester, year boundaries, invalid/future input) |
 | `tests/userRepository.profile.test.js` | profile columns in `create`/`updateProfile`/`findProfileById`, migration 001 (idempotent, additive) |
@@ -327,21 +328,31 @@ Protected message endpoints require:
 Authorization: Bearer <jwt-token>
 ```
 
-## Optional Ollama Setup
+## Optional LLM Setup (AI Summaries)
 
-Message summaries use Ollama with the `llama3` model. The backend currently expects Ollama at:
+Message summaries are generated through `backend/src/services/llmService.js`, which speaks the
+OpenAI-compatible Chat Completions API. Any provider offering that API works (OpenAI, Anthropic,
+Google Gemini, Mistral, Groq, OpenRouter, local Ollama, ...). Switching the LLM is a pure
+configuration change, no code changes needed:
 
-```text
-http://host.docker.internal:11434
-```
+| Variable | Description | Default |
+|---|---|---|
+| `LLM_BASE_URL` | Base URL of the provider API | local Ollama (`http://host.docker.internal:11434/v1` in Docker, `http://localhost:11434/v1` otherwise) |
+| `LLM_API_KEY` | Provider API key (sent as `Authorization: Bearer`); leave empty for local Ollama | empty |
+| `LLM_MODEL` | Model name | `llama3.2:3b` |
+| `LLM_TIMEOUT_MS` | Request timeout in milliseconds | `60000` |
 
-Install Ollama, then pull the model:
+With Docker, copy `.env.example` to `.env` in the project root and fill in the values; the root `.env`
+is git-ignored. Without Docker, set the variables in `backend/.env`. Never commit API keys.
+
+Default setup with local Ollama:
 
 ```bash
-ollama pull llama3
+ollama pull llama3.2:3b
 ```
 
-All non-AI features work without Ollama. Only `/messages/:id/summarize` will fail if Ollama is not running.
+All non-AI features work without an LLM. If the LLM is unreachable or misconfigured,
+`/messages/:id/summarize` responds with `503`.
 
 ## Troubleshooting
 

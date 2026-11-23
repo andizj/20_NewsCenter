@@ -1,7 +1,9 @@
 jest.mock('../src/repositories/messageRepository');
+jest.mock('../src/services/llmService');
 
 const messageRepository = require('../src/repositories/messageRepository');
-const { createMessage, getMessageById, addTagToMessage, addTagsToMessage } = require('../src/services/messageService');
+const llmService = require('../src/services/llmService');
+const { createMessage, getMessageById, addTagToMessage, addTagsToMessage, summarizeMessage } = require('../src/services/messageService');
 
 describe('messageService', () => {
 
@@ -106,6 +108,34 @@ describe('messageService', () => {
 
       await expect(getMessageById({ id: 'gibts-nicht', userRole: 'STUDENT' }))
         .rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  describe('summarizeMessage', () => {
+    test('wirft 404 wenn Nachricht für die Rolle nicht sichtbar ist', async () => {
+      messageRepository.findById.mockResolvedValue(null);
+      await expect(summarizeMessage({ id: 'msg-1', userRole: 'STUDENT' }))
+        .rejects.toMatchObject({ status: 404 });
+      expect(llmService.generateText).not.toHaveBeenCalled();
+    });
+
+    test('übergibt Titel und Text an den LLM-Service', async () => {
+      messageRepository.findById.mockResolvedValue({ id: 'msg-1', title: 'Übung', body: 'Morgen 10 Uhr' });
+      llmService.generateText.mockResolvedValue('Morgen um 10 Uhr findet eine Übung statt.');
+
+      await expect(summarizeMessage({ id: 'msg-1', userRole: 'STUDENT' }))
+        .resolves.toEqual({ summary: 'Morgen um 10 Uhr findet eine Übung statt.' });
+
+      const prompt = llmService.generateText.mock.calls[0][0];
+      expect(prompt).toContain('Übung');
+      expect(prompt).toContain('Morgen 10 Uhr');
+    });
+
+    test('reicht Fehler des LLM-Service durch', async () => {
+      messageRepository.findById.mockResolvedValue({ id: 'msg-1', title: 'T', body: 'B' });
+      llmService.generateText.mockRejectedValue({ status: 503, message: 'KI-Dienst nicht erreichbar' });
+      await expect(summarizeMessage({ id: 'msg-1', userRole: 'ALL' }))
+        .rejects.toMatchObject({ status: 503 });
     });
   });
 
